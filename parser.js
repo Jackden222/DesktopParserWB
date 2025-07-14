@@ -62,7 +62,6 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
         'Цена': price,
         'Рейтинг': p.reviewRating,
         'Кол-во отзывов': p.feedbacks,
-        'Объём продаж в мес': p.volume ?? '',
         'Ссылка на товар': `https://www.wildberries.ru/catalog/${p.id}/detail.aspx`,
         'Магазин': p.supplier,
         'Ссылка на магазин': p.supplierId ? `https://www.wildberries.ru/seller/${p.supplierId}` : '',
