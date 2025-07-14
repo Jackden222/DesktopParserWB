@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Парсер Wildberries GUI</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="sidebar">
+      <h3>Последние сохраненные файлы</h3>
+      <ul id="file-list"></ul>
+    </div>
+    <div class="main">
+      <div class="search-block">
+        <input id="search-input" type="text" placeholder="Ключевое слово для поиска">
+        <button id="search-btn">Искать</button>
+      </div>
+      <div class="preview-block">
+        <h4 id="preview-title">Просмотр</h4>
+        <div id="preview-table"></div>
+      </div>
+    </div>
+  </div>
+  <div id="loading-overlay" style="display:none;">
+    <div class="spinner"></div>
+    <div class="loading-text">Поиск...</div>
+  </div>
+  <script src="renderer.js"></script>
+</body>
+</html> 

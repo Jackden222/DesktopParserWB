@@ -1,0 +1,23 @@
+# Node.js
+node_modules/
+
+# Логи
+*.log
+log.txt
+
+# Excel/выгрузки
+*.xlsx
+
+# Electron
+/dist/
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# Конфиденциальные файлы
+.env
+
+# Временные файлы
+*.tmp
+*.swp 
