@@ -151,4 +151,55 @@ th.sortable {
   color: #7c3aed;
   font-weight: 500;
   letter-spacing: 1px;
+}
+/* Стили для анализа и модального окна удалены */
+.summary-block {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  margin: 24px 0 16px 0;
+  padding: 20px 24px;
+  background: #f8f9fa;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  justify-content: flex-start;
+  align-items: center;
+}
+.summary-item {
+  min-width: 140px;
+  margin-right: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  position: relative;
+}
+.summary-value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #2d72d9;
+  margin-bottom: 2px;
+}
+.summary-label {
+  font-size: 0.92rem;
+  color: #555;
+  margin-bottom: 0;
+}
+.summary-icon {
+  font-size: 1.1rem;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+@media (max-width: 600px) {
+  .summary-block {
+    flex-direction: column;
+    gap: 12px;
+    padding: 12px 8px;
+  }
+  .summary-item {
+    min-width: unset;
+    margin-right: 0;
+  }
+  .summary-value {
+    font-size: 1.3rem;
+  }
 } 

@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Парсер Wildberries GUI</title>
+  <title>Парсер Wildberries BY:@PavelQSS in telegram</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -16,9 +16,13 @@
         <input id="search-input" type="text" placeholder="Ключевое слово для поиска">
         <button id="search-btn">Искать</button>
       </div>
+      <div id="summary" class="summary-block">
+        <!-- Здесь будет сводка: средняя цена, рейтинг, количество и т.д. -->
+      </div>
       <div class="preview-block">
         <h4 id="preview-title">Просмотр</h4>
         <div id="preview-table"></div>
+        <!-- Кнопка анализа и модальное окно удалены -->
       </div>
     </div>
   </div>
@@ -26,6 +30,7 @@
     <div class="spinner"></div>
     <div class="loading-text">Поиск...</div>
   </div>
+  <!-- Модальное окно AI-аналитики удалено -->
   <script src="renderer.js"></script>
 </body>
 </html> 

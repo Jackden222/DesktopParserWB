@@ -6,6 +6,7 @@ function createWindow() {
   const win = new BrowserWindow({
     width: 1100,
     height: 700,
+    icon: path.join(__dirname, 'icons.jpg'), // кастомная иконка
     webPreferences: {
       preload: path.join(__dirname, 'renderer.js'),
       nodeIntegration: true,
@@ -13,6 +14,7 @@ function createWindow() {
     },
   });
   win.loadFile('index.html');
+  win.setMenu(null); // Отключаем меню
 }
 
 app.whenReady().then(() => {
