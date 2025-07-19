@@ -3,18 +3,39 @@
   "version": "1.0.0",
   "main": "main.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dist": "electron-builder"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "@supabase/supabase-js": "^2.51.0",
     "axios": "^1.10.0",
+    "electron-updater": "^6.6.2",
     "node-fetch": "^2.7.0",
+    "node-machine-id": "^1.1.12",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "electron": "^37.2.1"
+    "electron": "^37.2.1",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "Telegram:@PavelQSS",
+    "productName": "WildberriesParser",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Jackden222",
+        "repo": "https://github.com/Jackden222/DesktopParserWB.git"
+      }
+    ],
+    "win": {
+      "target": "nsis"
+    }
   }
+
+  
 }

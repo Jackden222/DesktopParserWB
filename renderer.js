@@ -14,6 +14,176 @@ let previewData = [];
 let previewHeaders = [];
 let sortState = { col: null, dir: 1 };
 
+// --- АКТИВАЦИЯ ---
+let isActivated = false;
+const APP_VERSION = '1.0.0'; // Текущая версия приложения
+const GITHUB_OWNER = 'ВАШ_GITHUB_НИК'; // заменить на ваш ник
+const GITHUB_REPO = 'ВАШ_РЕПОЗИТОРИЙ'; // заменить на ваш репозиторий
+const GITHUB_BRANCH = 'production';
+
+window.addEventListener('DOMContentLoaded', () => {
+  ipcRenderer.on('activation-status', (event, status) => {
+    isActivated = status;
+    renderActivation();
+  });
+  checkForUpdate();
+  ipcRenderer.on('update-message', (event, msg) => {
+    alert(msg); // Можно заменить на красивый UI, если потребуется
+  });
+});
+
+function renderActivation() {
+  let actBlock = document.getElementById('activation-block');
+  let indicator = document.getElementById('activation-indicator');
+  // --- Блокировка элементов ---
+  if (typeof isActivated !== 'undefined') {
+    const searchInput = document.getElementById('search-input');
+    const searchBtn = document.getElementById('search-btn');
+    if (searchInput) searchInput.disabled = !isActivated;
+    if (searchBtn) searchBtn.disabled = !isActivated;
+    // Блокировка других элементов (пример)
+    const exportBtn = document.getElementById('export-btn');
+    if (exportBtn) exportBtn.disabled = !isActivated;
+    // Можно добавить блокировку предпросмотра, сортировки и т.д. по аналогии
+  }
+  // --- Индикатор ---
+  if (indicator) {
+    if (isActivated) {
+      indicator.textContent = 'Приложение активировано';
+      indicator.style.background = '#43a047';
+      indicator.style.display = 'block';
+      indicator.style.cursor = 'default';
+      indicator.onclick = null;
+    } else {
+      indicator.textContent = 'Требуется активация';
+      indicator.style.background = '#d32f2f';
+      indicator.style.display = 'block';
+      indicator.style.cursor = 'pointer';
+      indicator.onclick = () => {
+        showActivationModal();
+      };
+    }
+  }
+  if (!actBlock) {
+    actBlock = document.createElement('div');
+    actBlock.id = 'activation-block';
+    actBlock.style = 'display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;position:fixed;top:0;left:0;width:100vw;background:#f6f8fa;z-index:9999;';
+    actBlock.innerHTML = `
+      <div style="background:#fff;border-radius:18px;box-shadow:0 4px 24px rgba(44,62,80,0.10);padding:36px 32px 28px 32px;min-width:340px;display:flex;flex-direction:column;align-items:center;">
+        <div style="font-size:1.35rem;font-weight:600;margin-bottom:18px;color:#2d72d9;">Активация приложения</div>
+        <div style="font-size:1.05rem;margin-bottom:10px;color:#333;">Введите код активации:</div>
+        <input id="activation-code" type="text" style="width:100%;font-size:1.1rem;padding:10px 12px;border:1.5px solid #d0d7de;border-radius:8px;margin-bottom:18px;outline:none;transition:border 0.2s;" autofocus autocomplete="off" />
+        <div id="activation-error" style="color:#d32f2f;font-size:0.98rem;margin-bottom:10px;display:none;"></div>
+        <button id="activation-ok" style="background:linear-gradient(90deg,#2d72d9 60%,#6c63ff 100%);color:#fff;font-size:1.08rem;font-weight:600;border:none;border-radius:8px;padding:10px 32px;cursor:pointer;box-shadow:0 2px 8px rgba(44,62,80,0.07);transition:background 0.2s;">Активировать</button>
+      </div>
+    `;
+    document.body.appendChild(actBlock);
+    document.getElementById('activation-ok').onclick = () => {
+      const code = document.getElementById('activation-code').value.trim();
+      if (!code) {
+        showActivationError('Введите код!');
+        return;
+      }
+      ipcRenderer.invoke('try-activate', code).then(res => {
+        if (res.ok) {
+          isActivated = true;
+          actBlock.style.display = 'none';
+          location.reload();
+        } else {
+          showActivationError(res.message || 'Ошибка активации');
+        }
+      });
+    };
+    document.getElementById('activation-code').onkeydown = e => {
+      if(e.key==='Enter') document.getElementById('activation-ok').click();
+    };
+  }
+  actBlock.style.display = isActivated ? 'none' : 'flex';
+}
+function showActivationError(msg) {
+  const el = document.getElementById('activation-error');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function showActivationModal() {
+  let modal = document.getElementById('activation-modal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'activation-modal';
+    modal.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);z-index:10001;display:flex;align-items:center;justify-content:center;';
+    modal.innerHTML = `
+      <div style="background:#fff;border-radius:18px;box-shadow:0 4px 24px rgba(44,62,80,0.10);padding:36px 32px 28px 32px;min-width:340px;display:flex;flex-direction:column;align-items:center;">
+        <div style="font-size:1.35rem;font-weight:600;margin-bottom:18px;color:#2d72d9;">Активация приложения</div>
+        <div style="font-size:1.05rem;margin-bottom:10px;color:#333;">Введите код активации:</div>
+        <input id="activation-code-modal" type="text" style="width:100%;font-size:1.1rem;padding:10px 12px;border:1.5px solid #d0d7de;border-radius:8px;margin-bottom:18px;outline:none;transition:border 0.2s;" autofocus autocomplete="off" />
+        <div id="activation-error-modal" style="color:#d32f2f;font-size:0.98rem;margin-bottom:10px;display:none;"></div>
+        <div style="display:flex;gap:12px;">
+          <button id="activation-ok-modal" style="background:linear-gradient(90deg,#2d72d9 60%,#6c63ff 100%);color:#fff;font-size:1.08rem;font-weight:600;border:none;border-radius:8px;padding:10px 32px;cursor:pointer;box-shadow:0 2px 8px rgba(44,62,80,0.07);transition:background 0.2s;">Активировать</button>
+          <button id="activation-cancel-modal" style="background:#eee;color:#333;font-size:1.08rem;font-weight:600;border:none;border-radius:8px;padding:10px 24px;cursor:pointer;">Отмена</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(modal);
+    document.getElementById('activation-ok-modal').onclick = () => {
+      const code = document.getElementById('activation-code-modal').value.trim();
+      if (!code) {
+        showActivationErrorModal('Введите код!');
+        return;
+      }
+      ipcRenderer.invoke('try-activate', code).then(res => {
+        if (res.ok) {
+          isActivated = true;
+          modal.remove();
+          renderActivation();
+        } else {
+          showActivationErrorModal(res.message || 'Ошибка активации');
+        }
+      });
+    };
+    document.getElementById('activation-cancel-modal').onclick = () => {
+      modal.remove();
+    };
+    document.getElementById('activation-code-modal').onkeydown = e => {
+      if(e.key==='Enter') document.getElementById('activation-ok-modal').click();
+    };
+  }
+}
+function showActivationErrorModal(msg) {
+  const el = document.getElementById('activation-error-modal');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+async function checkForUpdate() {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`);
+    const data = await res.json();
+    if (data && data.sha) {
+      const lastCommit = data.sha;
+      const lastCommitStored = localStorage.getItem('lastProductionCommit');
+      if (lastCommitStored !== lastCommit) {
+        showUpdateButton();
+        localStorage.setItem('lastProductionCommit', lastCommit);
+      }
+    }
+  } catch (e) {
+    console.log('Ошибка проверки обновлений:', e);
+  }
+}
+
+function showUpdateButton() {
+  if (document.getElementById('update-btn')) return;
+  const btn = document.createElement('button');
+  btn.id = 'update-btn';
+  btn.textContent = 'Обновить приложение';
+  btn.style = 'position:fixed;top:18px;right:18px;z-index:1002;background:#2d72d9;color:#fff;font-size:1.1rem;padding:10px 22px;border:none;border-radius:8px;box-shadow:0 2px 8px #0002;cursor:pointer;';
+  btn.onclick = () => {
+    window.open(`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`, '_blank');
+  };
+  document.body.appendChild(btn);
+}
+
 function getXlsxFiles() {
   const files = fs.readdirSync('.').filter(f => f.endsWith('.xlsx'));
   return files

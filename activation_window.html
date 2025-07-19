@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <title>Активация</title>
+  <style>
+    body {
+      background: #f6f8fa;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
+    }
+    .activation-box {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 4px 24px rgba(44,62,80,0.10);
+      padding: 36px 32px 28px 32px;
+      min-width: 340px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .activation-title {
+      font-size: 1.35rem;
+      font-weight: 600;
+      margin-bottom: 18px;
+      color: #2d72d9;
+    }
+    .activation-label {
+      font-size: 1.05rem;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    .activation-input {
+      width: 100%;
+      font-size: 1.1rem;
+      padding: 10px 12px;
+      border: 1.5px solid #d0d7de;
+      border-radius: 8px;
+      margin-bottom: 18px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .activation-input:focus {
+      border-color: #2d72d9;
+    }
+    .activation-btn {
+      background: linear-gradient(90deg,#2d72d9 60%,#6c63ff 100%);
+      color: #fff;
+      font-size: 1.08rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 32px;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+      transition: background 0.2s;
+    }
+    .activation-btn:hover {
+      background: linear-gradient(90deg,#1a4e9b 60%,#4b3fc4 100%);
+    }
+    .activation-error {
+      color: #d32f2f;
+      font-size: 0.98rem;
+      margin-bottom: 10px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="activation-box">
+    <div class="activation-title">Активация приложения</div>
+    <div class="activation-label">Введите код активации:</div>
+    <input id="code" class="activation-input" type="text" autofocus autocomplete="off" />
+    <div id="error" class="activation-error"></div>
+    <button id="ok" class="activation-btn">Активировать</button>
+  </div>
+  <script>
+    const { ipcRenderer } = require('electron');
+    document.getElementById('ok').onclick = () => {
+      const code = document.getElementById('code').value.trim();
+      if (!code) {
+        showError('Введите код!');
+        return;
+      }
+      ipcRenderer.send('activation-code', code);
+    };
+    document.getElementById('code').onkeydown = e => {
+      if(e.key==='Enter') document.getElementById('ok').click();
+    };
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+    ipcRenderer.on('activation-error', (e, msg) => showError(msg));
+  </script>
+</body>
+</html> 
