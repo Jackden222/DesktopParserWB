@@ -4,6 +4,7 @@ const path = require('path');
 const { exec } = require('child_process');
 const activation = require('./activation');
 const { autoUpdater } = require('electron-updater');
+const remoteMain = require('@electron/remote/main');
 
 let activationPassed = false;
 let mainWindow = null;
@@ -61,12 +62,17 @@ function createWindow(isActivated) {
       width: 1100,
       height: 700,
       icon: path.join(__dirname, 'icons.ico'),
+      // frame: false, // убрано для дефолтных кнопок
+      // transparent: true, // убрано
+      // roundedCorners: true, // убрано
       webPreferences: {
         preload: path.join(__dirname, 'renderer.js'),
         nodeIntegration: true,
         contextIsolation: false,
+        enableRemoteModule: true,
       },
     });
+    remoteMain.enable(mainWindow.webContents);
     log('BrowserWindow created');
     mainWindow.loadFile('index.html');
     log('index.html loaded');
@@ -81,6 +87,7 @@ function createWindow(isActivated) {
 }
 
 app.whenReady().then(() => {
+  remoteMain.initialize();
   startApp();
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(activationPassed);
@@ -97,9 +104,10 @@ app.on('window-all-closed', function () {
 });
 
 // IPC: запуск парсера по запросу из renderer
-ipcMain.handle('run-parser', async (event, query) => {
+ipcMain.handle('run-parser', async (event, query, saveDir) => {
   return new Promise((resolve, reject) => {
-    const cmd = `node parser.js`;
+    let cmd = `node parser.js`;
+    if (saveDir) cmd += ` "${saveDir}"`;
     const child = exec(cmd, { env: { ...process.env } }, (error, stdout, stderr) => {
       if (error) return reject(stderr || error.message);
       resolve(stdout);

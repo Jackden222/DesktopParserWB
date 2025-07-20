@@ -44,7 +44,7 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
       if (e.response && e.response.data && e.response.data.error === 'page param malformed') {
         hasMore = false;
       } else {
-        hasMore = false;
+      hasMore = false;
       }
     }
   }
@@ -64,7 +64,7 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
         'Кол-во отзывов': p.feedbacks,
         'Ссылка на товар': `https://www.wildberries.ru/catalog/${p.id}/detail.aspx`,
         'Магазин': p.supplier,
-        'Ссылка на магазин': p.supplierId ? `https://www.wildberries.ru/seller/${p.supplierId}` : '',
+        'Ссылка на магазин': p.supplierId ? `https://www.wildberries.ru/seller/${p.supplierId}` : ''
       };
     })
     .filter(p => p['Цена'] !== null); // убираю фильтры по цене и рейтингу
@@ -76,8 +76,14 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
 
   // Формируем имя файла по запросу, убираем недопустимые символы
   let safeQuery = query && query.trim() ? query.trim() : 'носки';
-  safeQuery = safeQuery.replace(/[\\/:*?"<>|]/g, '_');
-  const fileName = `${safeQuery}.xlsx`;
+  safeQuery = safeQuery.replace(/[\/:*?"<>|]/g, '_');
+  const saveDir = process.argv[2] || process.cwd();
+  let fileName = require('path').join(saveDir, `${safeQuery}.xlsx`);
+  if (fs.existsSync(fileName)) {
+    // Добавляем уникальный ID (timestamp)
+    const id = Date.now();
+    fileName = require('path').join(saveDir, `${safeQuery}_${id}.xlsx`);
+  }
   XLSX.writeFile(workbook, fileName);
 
   logStream.write(`[${new Date().toISOString()}] Готово: ${fileName}. Всего товаров: ${data.length}\n`);

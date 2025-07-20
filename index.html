@@ -2,33 +2,111 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <title>Парсер Wildberries BY:@PavelQSS in telegram</title>
+  <title>Парсер Wildberries</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- custom-titlebar удалён -->
   <div class="container">
-    <div class="sidebar">
-      <h3>Последние сохраненные файлы</h3>
-      <ul id="file-list"></ul>
+    <button id="sidebar-toggle" class="sidebar-toggle" style="display:none;position:fixed;top:18px;left:18px;z-index:2000;background:#7c3aed;color:#fff;border:none;border-radius:8px;width:44px;height:44px;font-size:2rem;align-items:center;justify-content:center;cursor:pointer;">☰</button>
+    <div class="sidebar" id="sidebar">
+      <h2>Меню</h2>
+      <button id="parser-btn" class="settings-btn">Парсер</button>
+      <button id="compare-btn" class="settings-btn" style="margin-top:6px;">Сравнение</button>
+      <button id="settings-btn" class="settings-btn" style="margin-top:6px;">⚙️ Настройки</button>
+      <div class="sidebar-bottom">
+      </div>
     </div>
     <div class="main">
-      <div class="search-block">
-        <input id="search-input" type="text" placeholder="Ключевое слово для поиска">
-        <button id="search-btn">Искать</button>
+      <div id="main-page">
+        <div class="search-block">
+          <input id="search-input" type="text" placeholder="Наименование товара">
+          <button id="search-btn">Искать</button>
+        </div>
+        <!-- summary-wrapper удалён -->
+        <div id="parsing-status" style="display:none;margin-bottom:18px;font-size:1.08rem;color:#2d72d9;font-weight:500;"></div>
+        <div class="preview-block">
+          <div class="preview-header-row">
+            <h4 id="preview-title">Просмотр</h4>
+            <select id="table-select" class="table-select" style="min-width:180px;margin-left:18px;"></select>
+            <button id="toggle-summary" class="toggle-summary-btn">Показать сводку</button>
+          </div>
+          <div id="preview-table"></div>
+        </div>
       </div>
-      <div id="summary" class="summary-block">
-        <!-- Здесь будет сводка: средняя цена, рейтинг, количество и т.д. -->
+      <div id="compare-page" style="display:none;">
+        <h2 style="text-align:center;color:#7c3aed;margin-top:24px;">Сравнение товаров за периоды</h2>
+        <h3 style="text-align:center;color:#615f63;margin-top:2px;font-size:14px;">Внимание! Из-за ограничения API Wildberries в 6000 товаров</h3>
+        <h3 style="text-align:center;color:#615f63;margin-top:2px;font-size:14px;">при повторном парсинге артикулы могут изменится</h3>
+        <div style="display:flex;justify-content:center;gap:32px;margin:32px 0 24px 0;">
+          <select id="compare-file-1" class="table-select" style="min-width:220px;"></select>
+          <select id="compare-file-2" class="table-select" style="min-width:220px;"></select>
+          <button id="run-compare-btn" class="toggle-summary-btn" style="padding:10px 28px;font-size:1.08rem;border-radius:18px;">Сравнить</button>
+        </div>
+        <div style="display:flex;justify-content:center;gap:18px;margin-bottom:18px;">
+          <button id="generate-compare-table-btn" class="toggle-summary-btn" style="padding:10px 28px;font-size:1.08rem;border-radius:18px;">Сформировать таблицу</button>
+          <button id="download-compare-table-btn" class="toggle-summary-btn" style="padding:10px 28px;font-size:1.08rem;border-radius:18px;" disabled>Скачать</button>
+        </div>
+        <div id="compare-result-block" style="margin:0 auto;max-width:1200px;"></div>
       </div>
-      <div class="preview-block">
-        <h4 id="preview-title">Просмотр</h4>
-        <div id="preview-table"></div>
-        <!-- Кнопка анализа и модальное окно удалены -->
+    </div>
+  </div>
+  <div id="summary-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <button id="close-summary-modal" class="close-modal-btn">×</button>
+      <div id="summary" class="summary-block"></div>
+    </div>
+  </div>
+  <div id="settings-modal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <button id="close-settings-modal" class="close-modal-btn">×</button>
+      <div style="font-size:1.2rem;font-weight:600;margin-bottom:18px;">Настройки приложения</div>
+      
+      <!-- Информация о приложении -->
+      <div style="margin-bottom:20px;padding:12px;background:#f8f9fa;border-radius:8px;">
+        <div id="version-info" style="font-size:0.9rem;color:#666;margin-bottom:8px;">Версия: 1.0.0</div>
+        <div id="activation-status" style="font-size:0.9rem;font-weight:500;">❌ Требуется активация</div>
+      </div>
+      
+      <!-- Настройки папки -->
+      <div style="margin-bottom:20px;">
+        <div style="font-weight:500;margin-bottom:8px;">Папка для сохранения файлов:</div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <input id="folder-path" type="text" style="width:320px;padding:7px 10px;font-size:1rem;border-radius:6px;border:1px solid #bbb;" readonly />
+          <button id="choose-folder-btn" style="padding:7px 16px;font-size:1rem;border-radius:6px;background:#7c3aed;color:#fff;border:none;cursor:pointer;">Выбрать...</button>
+        </div>
+      </div>
+      
+      <!-- Кнопки действий -->
+      <div style="display:flex;gap:10px;margin-bottom:15px;">
+        <button id="activate-btn" style="padding:8px 16px;font-size:0.9rem;border-radius:6px;background:#2d72d9;color:#fff;border:none;cursor:pointer;">Активировать приложение</button>
+        <button id="reset-settings-btn" style="padding:8px 16px;font-size:0.9rem;border-radius:6px;background:#dc3545;color:#fff;border:none;cursor:pointer;">Сбросить настройки</button>
+      </div>
+      
+      <!-- Дополнительная информация -->
+      <div style="font-size:0.85rem;color:#666;line-height:1.4;">
+        <div style="margin-bottom:5px;">• Файлы сохраняются в формате Excel (.xlsx)</div>
+        <div style="margin-bottom:5px;">• Автоматическое обновление списка файлов</div>
+        <div style="margin-bottom:5px;">• Поддержка сортировки и фильтрации данных</div>
+        <div>• Аналитика по товарам и магазинам</div>
       </div>
     </div>
   </div>
   <div id="loading-overlay" style="display:none;">
     <div class="spinner"></div>
     <div class="loading-text">Поиск...</div>
+  </div>
+  <div id="app-loader" class="app-loader-overlay">
+    <div class="app-loader-content">
+      <div class="app-spinner"></div>
+      <div class="app-loader-text">Загрузка приложения...</div>
+    </div>
+  </div>
+  <div id="product-modal" class="modal" style="display:none;">
+    <div class="modal-content" id="product-modal-content">
+      <button id="close-product-modal" class="close-modal-btn">×</button>
+      <div id="product-details"></div>
+    </div>
   </div>
   <!-- Модальное окно AI-аналитики удалено -->
   <script src="renderer.js"></script>
