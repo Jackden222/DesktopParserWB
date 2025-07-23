@@ -694,7 +694,7 @@ function renderPreviewTable() {
         if (e.target.classList.contains('link-cell')) {
           e.preventDefault();
           const row = e.target.closest('tr');
-          const rowIndex = Array.from(row.parentNode.children).indexOf(row) - 1; // -1 для заголовка
+          const rowIndex = Array.from(row.parentNode.children).indexOf(row); // исправлено: убрал -1
           const linkIndex = previewHeaders.findIndex(h => h === 'Ссылка на товар' || h === 'Ссылка на магазин');
           if (rowIndex >= 0 && linkIndex >= 0 && previewData[rowIndex]) {
             const url = previewData[rowIndex][linkIndex];
