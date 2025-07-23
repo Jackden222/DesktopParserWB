@@ -937,3 +937,49 @@ th.sortable {
   }
 }
 /* --- Конец стилей для сравнения --- */ 
+#file-modal.modal {
+  display: none;
+  position: fixed;
+  z-index: 3000;
+  left: 0; top: 0; width: 100vw; height: 100vh;
+  background: rgba(39, 78, 158, 0.18);
+  align-items: center;
+  justify-content: center;
+}
+#file-modal .modal-content {
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 8px 32px #7c3aed33, 0 2px 8px #ede9fe;
+  padding: 32px 32px 24px 32px;
+  min-width: 420px;
+  max-width: 90vw;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+  animation: loader-fadein 0.7s cubic-bezier(.4,0,.2,1);
+}
+#file-modal .close-modal-btn {
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  background: none;
+  border: none;
+  font-size: 2rem;
+  color: #7c3aed;
+  cursor: pointer;
+}
+#file-modal-list {
+  margin-top: 12px;
+  font-size: 1.08rem;
+}
+.file-modal-link {
+  margin-bottom: 6px;
+  display: block;
+  color: #7c3aed;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.18s;
+}
+.file-modal-link:hover {
+  color: #2d72d9;
+} 

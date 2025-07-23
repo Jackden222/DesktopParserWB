@@ -230,11 +230,47 @@ window.addEventListener('DOMContentLoaded', () => {
       setTimeout(() => appLoader.remove(), 800);
     }, 5000);
   }
-  const tableSelect = document.getElementById('table-select');
-  if (tableSelect) {
-    tableSelect.onchange = () => {
-      if (tableSelect.value) selectTable(tableSelect.value);
+  // --- Модальное окно выбора файла ---
+  const openFileModalBtn = document.getElementById('open-file-modal');
+  const fileModal = document.getElementById('file-modal');
+  const closeFileModal = document.getElementById('close-file-modal');
+  const fileModalList = document.getElementById('file-modal-list');
+
+  if (openFileModalBtn && fileModal && closeFileModal && fileModalList) {
+    openFileModalBtn.onclick = async () => {
+      await renderFileModalList();
+      fileModal.style.display = 'flex';
     };
+    closeFileModal.onclick = () => {
+      fileModal.style.display = 'none';
+    };
+    fileModal.onclick = (e) => {
+      if (e.target === fileModal) fileModal.style.display = 'none';
+    };
+  }
+
+  async function renderFileModalList() {
+    const files = await getXlsxFiles();
+    if (!files.length) {
+      fileModalList.innerHTML = '<div style="text-align:center;color:#888;font-size:1.1rem;">Нет файлов</div>';
+      return;
+    }
+    let html = '';
+    files.forEach(f => {
+      const dateMatch = f.match(/(\d{2}\.\d{2}\.\d{4})/);
+      const dateStr = dateMatch ? ` (${dateMatch[1]})` : '';
+      html += `<div class="file-modal-link" data-fname="${f}" style="color:#7c3aed;cursor:pointer;text-decoration:underline;margin-bottom:4px;">${f}${dateStr}</div>`;
+    });
+    fileModalList.innerHTML = html;
+    fileModalList.querySelectorAll('.file-modal-link').forEach(el => {
+      el.onclick = (e) => {
+        const fname = el.getAttribute('data-fname');
+        if (fname) {
+          selectTable(fname);
+          fileModal.style.display = 'none';
+        }
+      };
+    });
   }
   // --- Навигация между страницами ---
   const mainPage = document.getElementById('main-page');

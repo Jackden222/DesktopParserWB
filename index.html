@@ -28,7 +28,7 @@
         <div class="preview-block">
           <div class="preview-header-row">
             <h4 id="preview-title">Просмотр</h4>
-            <select id="table-select" class="table-select" style="min-width:180px;margin-left:18px;"></select>
+            <button id="open-file-modal" class="table-select" style="min-width:180px;margin-left:18px;">Выбрать файл</button>
             <button id="toggle-summary" class="toggle-summary-btn">Показать сводку</button>
           </div>
           <div id="preview-table"></div>
@@ -109,6 +109,13 @@
     </div>
   </div>
   <!-- Модальное окно AI-аналитики удалено -->
+  <div id="file-modal" class="modal" style="display:none;">
+    <div class="modal-content" id="file-modal-content">
+      <button id="close-file-modal" class="close-modal-btn">×</button>
+      <div id="file-modal-title" style="font-size:1.3rem;font-weight:700;text-align:center;color:#7c3aed;margin-bottom:18px;">Файлы</div>
+      <div id="file-modal-list"></div>
+    </div>
+  </div>
   <script src="renderer.js"></script>
 </body>
 </html> 
