@@ -11,18 +11,11 @@ let mainWindow = null;
 
 async function startApp() {
   let activated = await activation.checkActivation();
-  const log = (msg) => {
-    const line = `[${new Date().toISOString()}] [main] ${msg}\n`;
-    const logFile = path.join(process.cwd(), 'log.txt');
-    fs.appendFileSync(logFile, line, 'utf8');
-    console.log(line);
-  };
   if (activated === true) {
     activationPassed = true;
   } else {
     activationPassed = false;
   }
-  log('creating main window, activationPassed=' + activationPassed);
   createWindow(activationPassed);
 }
 
@@ -50,13 +43,6 @@ function setupAutoUpdater(win) {
 }
 
 function createWindow(isActivated) {
-  const log = (msg) => {
-    const line = `[${new Date().toISOString()}] [main] ${msg}\n`;
-    const logFile = path.join(process.cwd(), 'log.txt');
-    fs.appendFileSync(logFile, line, 'utf8');
-    console.log(line);
-  };
-  log('createWindow called');
   try {
     mainWindow = new BrowserWindow({
       width: 1100,
@@ -73,16 +59,14 @@ function createWindow(isActivated) {
       },
     });
     remoteMain.enable(mainWindow.webContents);
-    log('BrowserWindow created');
     mainWindow.loadFile('index.html');
-    log('index.html loaded');
     mainWindow.setMenu(null);
     mainWindow.webContents.on('did-finish-load', () => {
       mainWindow.webContents.send('activation-status', isActivated);
     });
     setupAutoUpdater(mainWindow);
   } catch (e) {
-    log('createWindow error: ' + e.message);
+    console.error('createWindow error: ' + e.message);
   }
 }
 
@@ -96,8 +80,6 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', function () {
   if (!activationPassed) {
-    const logFile = path.join(process.cwd(), 'log.txt');
-    fs.appendFileSync(logFile, `[${new Date().toISOString()}] [main] window-all-closed, but activation not passed\n`, 'utf8');
     return;
   }
   if (process.platform !== 'darwin') app.quit();
@@ -126,4 +108,13 @@ ipcMain.handle('try-activate', async (event, code) => {
     }
   }
   return res;
+});
+
+ipcMain.handle('get-activation-info', async () => {
+  const info = await activation.getActivationInfo();
+  return info;
+});
+
+ipcMain.handle('check-for-updates', () => {
+  autoUpdater.checkForUpdatesAndNotify();
 }); 

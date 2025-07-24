@@ -1,23 +1,21 @@
-const fs = require('fs');
-
-function randomCode() {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+function genCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
   let code = '';
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 16; i++) {
     if (i > 0 && i % 4 === 0) code += '-';
     code += chars[Math.floor(Math.random() * chars.length)];
   }
   return code;
 }
 
-const codes = new Set();
-while (codes.size < 300) {
-  codes.add(randomCode());
+function genCodes(n) {
+  const set = new Set();
+  while (set.size < n) set.add(genCode());
+  return Array.from(set);
 }
 
-const sql = Array.from(codes).map(code =>
-  `insert into public.activation_codes (code) values ('${code}');`
-).join('\n');
+const codes1m = genCodes(500);
+const codes3m = genCodes(500);
 
-fs.writeFileSync('activation_codes.sql', sql, 'utf8');
-console.log('Готово! Сгенерировано 300 кодов и сохранено в activation_codes.sql'); 
+codes1m.forEach(c => console.log(`('${c}', '1month'),`));
+codes3m.forEach(c => console.log(`('${c}', '3month'),`));

@@ -39,8 +39,8 @@
         <h3 style="text-align:center;color:#615f63;margin-top:2px;font-size:14px;">Внимание! Из-за ограничения API Wildberries в 6000 товаров</h3>
         <h3 style="text-align:center;color:#615f63;margin-top:2px;font-size:14px;">при повторном парсинге артикулы могут изменится</h3>
         <div style="display:flex;justify-content:center;gap:32px;margin:32px 0 24px 0;">
-          <select id="compare-file-1" class="table-select" style="min-width:220px;"></select>
-          <select id="compare-file-2" class="table-select" style="min-width:220px;"></select>
+          <select id="compare-file-1" class="table-select" style="min-width:80px;"></select>
+          <select id="compare-file-2" class="table-select" style="min-width:8px;"></select>
           <button id="run-compare-btn" class="toggle-summary-btn" style="padding:10px 28px;font-size:1.08rem;border-radius:18px;">Сравнить</button>
         </div>
         <div style="display:flex;justify-content:center;gap:18px;margin-bottom:18px;">
@@ -58,33 +58,30 @@
     </div>
   </div>
   <div id="settings-modal" class="modal" style="display:none;">
-    <div class="modal-content">
-      <button id="close-settings-modal" class="close-modal-btn">×</button>
-      <div style="font-size:1.2rem;font-weight:600;margin-bottom:18px;">Настройки приложения</div>
-      
+    <div class="modal-content" style="background:linear-gradient(120deg,#f8fafc 60%,#ede9fe 100%);border-radius:22px;box-shadow:0 8px 32px #7c3aed33,0 2px 8px #ede9fe;padding:38px 38px 28px 38px;min-width:380px;max-width:96vw;">
+      <button id="close-settings-modal" class="close-modal-btn" style="top:18px;right:18px;">×</button>
+      <div style="font-size:2rem;font-weight:800;margin-bottom:24px;text-align:center;color:#2d2d2d;letter-spacing:0.5px;">Настройки приложения</div>
       <!-- Информация о приложении -->
-      <div style="margin-bottom:20px;padding:12px;background:#f8f9fa;border-radius:8px;">
-        <div id="version-info" style="font-size:0.9rem;color:#666;margin-bottom:8px;">Версия: 1.0.0</div>
-        <div id="activation-status" style="font-size:0.9rem;font-weight:500;">❌ Требуется активация</div>
+      <div style="margin-bottom:28px;padding:18px 18px 14px 18px;background:#fff;border-radius:16px;box-shadow:0 2px 12px #7c3aed11;display:flex;flex-direction:column;align-items:center;">
+        <div id="version-info" style="font-size:1.08rem;color:#888;margin-bottom:8px;">Версия: 1.0.3</div>
+        <div id="activation-status" style="font-size:1.12rem;font-weight:600;display:flex;align-items:center;gap:8px;color:#43a047;"><span style="font-size:1.3rem;">✅</span> Приложение активировано</div>
       </div>
-      
       <!-- Настройки папки -->
-      <div style="margin-bottom:20px;">
-        <div style="font-weight:500;margin-bottom:8px;">Папка для сохранения файлов:</div>
-        <div style="display:flex;align-items:center;gap:10px;">
-          <input id="folder-path" type="text" style="width:320px;padding:7px 10px;font-size:1rem;border-radius:6px;border:1px solid #bbb;" readonly />
-          <button id="choose-folder-btn" style="padding:7px 16px;font-size:1rem;border-radius:6px;background:#7c3aed;color:#fff;border:none;cursor:pointer;">Выбрать...</button>
+      <div style="margin-bottom:24px;">
+        <div style="font-weight:600;margin-bottom:8px;font-size:1.08rem;">Папка для сохранения файлов:</div>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <input id="folder-path" type="text" style="width:320px;padding:10px 14px;font-size:1.08rem;border-radius:8px;border:1.5px solid #bbb;background:#f8fafc;" readonly />
+          <button id="choose-folder-btn" style="padding:10px 22px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#a78bfa 60%,#7c3aed 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Выбрать...</button>
         </div>
       </div>
-      
       <!-- Кнопки действий -->
-      <div style="display:flex;gap:10px;margin-bottom:15px;">
-        <button id="activate-btn" style="padding:8px 16px;font-size:0.9rem;border-radius:6px;background:#2d72d9;color:#fff;border:none;cursor:pointer;">Активировать приложение</button>
-        <button id="reset-settings-btn" style="padding:8px 16px;font-size:0.9rem;border-radius:6px;background:#dc3545;color:#fff;border:none;cursor:pointer;">Сбросить настройки</button>
+      <div style="display:flex;gap:14px;margin-bottom:22px;justify-content:center;">
+        <button id="activate-btn" style="padding:12px 18px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#2563eb 60%,#38bdf8 100%);color:#fff;border:none;cursor:pointer;font-weight:700;transition:background 0.18s;">Активировать приложение</button>
+        <button id="reset-settings-btn" style="padding:12px 18px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#dc3545 60%,#f87171 100%);color:#fff;border:none;cursor:pointer;font-weight:700;transition:background 0.18s;">Сбросить настройки</button>
+        <button id="check-update-btn" style="padding:12px 18px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#7c3aed 60%,#2d72d9 100%);color:#fff;border:none;cursor:pointer;font-weight:700;transition:background 0.18s;">Проверить обновление</button>
       </div>
-      
       <!-- Дополнительная информация -->
-      <div style="font-size:0.85rem;color:#666;line-height:1.4;">
+      <div style="font-size:1.01rem;color:#666;line-height:1.5;text-align:left;margin-top:8px;">
         <div style="margin-bottom:5px;">• Файлы сохраняются в формате Excel (.xlsx)</div>
         <div style="margin-bottom:5px;">• Автоматическое обновление списка файлов</div>
         <div style="margin-bottom:5px;">• Поддержка сортировки и фильтрации данных</div>

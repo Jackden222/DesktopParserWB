@@ -117,28 +117,42 @@ window.addEventListener('DOMContentLoaded', () => {
   const chooseFolderBtn = document.getElementById('choose-folder-btn');
   
   if (settingsBtn && settingsModal && closeSettingsModal && folderPathInput && chooseFolderBtn) {
-    settingsBtn.onclick = () => {
+    settingsBtn.onclick = async () => {
       // Обновляем информацию в модальном окне
       folderPathInput.value = saveDir;
-      
       // Обновляем статус активации
       const activationStatus = document.getElementById('activation-status');
       if (activationStatus) {
         if (isActivated) {
           activationStatus.textContent = '✅ Приложение активировано';
           activationStatus.style.color = '#43a047';
+          // Получаем инфо о сроке действия
+          const info = await ipcRenderer.invoke('get-activation-info');
+          let extra = '';
+          if (info && info.type !== 'unlimited' && info.expires_at) {
+            const now = new Date();
+            const exp = new Date(info.expires_at);
+            const diffMs = exp - now;
+            if (diffMs > 0) {
+              const days = Math.floor(diffMs / (1000*60*60*24));
+              const hours = Math.floor((diffMs % (1000*60*60*24)) / (1000*60*60));
+              const minutes = Math.floor((diffMs % (1000*60*60)) / (1000*60));
+              extra = `\nОсталось: ${days} д. ${hours} ч. ${minutes} мин.`;
+            } else {
+              extra = '\nСрок действия истёк!';
+            }
+          }
+          activationStatus.textContent += extra;
         } else {
           activationStatus.textContent = '❌ Требуется активация';
           activationStatus.style.color = '#d32f2f';
         }
       }
-      
       // Обновляем информацию о версии
       const versionInfo = document.getElementById('version-info');
       if (versionInfo) {
         versionInfo.textContent = `Версия: ${APP_VERSION}`;
       }
-      
       settingsModal.style.display = 'flex';
     };
     
@@ -390,6 +404,13 @@ window.addEventListener('DOMContentLoaded', () => {
       } catch (e) {
         alert('Ошибка сохранения файла: ' + e);
       }
+    };
+  }
+  // Добавляем кнопку проверки обновления
+  const checkUpdateBtn = document.getElementById('check-update-btn');
+  if (checkUpdateBtn) {
+    checkUpdateBtn.onclick = () => {
+      ipcRenderer.invoke('check-for-updates');
     };
   }
 });
