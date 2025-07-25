@@ -29,7 +29,7 @@ let sortState = { col: null, dir: 1 };
 
 // --- АКТИВАЦИЯ ---
 let isActivated = false;
-const APP_VERSION = '1.0.7'; // Текущая версия приложения
+const APP_VERSION = '1.0.8'; // Текущая версия приложения
 const GITHUB_OWNER = 'ВАШ_GITHUB_НИК'; // заменить на ваш ник
 const GITHUB_REPO = 'ВАШ_РЕПОЗИТОРИЙ'; // заменить на ваш репозиторий
 const GITHUB_BRANCH = 'production';
