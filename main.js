@@ -39,7 +39,6 @@ function setupAutoUpdater(win) {
   autoUpdater.on('error', (err) => {
     win.webContents.send('update-message', 'Ошибка обновления: ' + err.message);
   });
-  autoUpdater.checkForUpdatesAndNotify();
 }
 
 function createWindow(isActivated) {

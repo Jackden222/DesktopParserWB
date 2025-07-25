@@ -29,7 +29,7 @@ let sortState = { col: null, dir: 1 };
 
 // --- АКТИВАЦИЯ ---
 let isActivated = false;
-const APP_VERSION = '1.0.0'; // Текущая версия приложения
+const APP_VERSION = '1.0.7'; // Текущая версия приложения
 const GITHUB_OWNER = 'ВАШ_GITHUB_НИК'; // заменить на ваш ник
 const GITHUB_REPO = 'ВАШ_РЕПОЗИТОРИЙ'; // заменить на ваш репозиторий
 const GITHUB_BRANCH = 'production';
@@ -71,10 +71,6 @@ window.addEventListener('DOMContentLoaded', () => {
   ipcRenderer.on('activation-status', (event, status) => {
     isActivated = status;
     renderActivation();
-  });
-  checkForUpdate();
-  ipcRenderer.on('update-message', (event, msg) => {
-    alert(msg); // Можно заменить на красивый UI, если потребуется
   });
   // --- Кнопка показа/скрытия аналитики ---
   const toggleBtn = document.getElementById('toggle-summary');
@@ -406,7 +402,7 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     };
   }
-  // Добавляем кнопку проверки обновления
+  // Восстанавливаю обработчик и кнопку проверки обновления
   const checkUpdateBtn = document.getElementById('check-update-btn');
   if (checkUpdateBtn) {
     checkUpdateBtn.onclick = () => {
@@ -559,35 +555,6 @@ function showActivationErrorModal(msg) {
   const el = document.getElementById('activation-error-modal');
   el.textContent = msg;
   el.style.display = 'block';
-}
-
-async function checkForUpdate() {
-  try {
-    const res = await fetch(`https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits/${GITHUB_BRANCH}`);
-    const data = await res.json();
-    if (data && data.sha) {
-      const lastCommit = data.sha;
-      const lastCommitStored = localStorage.getItem('lastProductionCommit');
-      if (lastCommitStored !== lastCommit) {
-        showUpdateButton();
-        localStorage.setItem('lastProductionCommit', lastCommit);
-      }
-    }
-  } catch (e) {
-    console.log('Ошибка проверки обновлений:', e);
-  }
-}
-
-function showUpdateButton() {
-  if (document.getElementById('update-btn')) return;
-  const btn = document.createElement('button');
-  btn.id = 'update-btn';
-  btn.textContent = 'Обновить приложение';
-  btn.style = 'position:fixed;top:18px;right:18px;z-index:1002;background:#2d72d9;color:#fff;font-size:1.1rem;padding:10px 22px;border:none;border-radius:8px;box-shadow:0 2px 8px #0002;cursor:pointer;';
-  btn.onclick = () => {
-    window.open(`https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`, '_blank');
-  };
-  document.body.appendChild(btn);
 }
 
 function getXlsxFiles() {

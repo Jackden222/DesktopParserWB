@@ -10,27 +10,20 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const getDeviceId = () => machineIdSync();
 const getActivationFile = () => path.join(require('electron').app.getPath('userData'), 'activation.json');
 const getLogFile = () => path.join(process.cwd(), 'log.txt');
-function log(msg) {
-  const line = `[${new Date().toISOString()}] [activation] ${msg}\n`;
-  fs.appendFileSync(getLogFile(), line, 'utf8');
-  console.log(line);
-}
 
 async function checkActivation() {
   const file = getActivationFile();
-  if (!fs.existsSync(file)) { log('activation file not found'); return false; }
+  if (!fs.existsSync(file)) { return false; }
   try {
     const content = fs.readFileSync(file, 'utf8');
     let parsed;
     try {
       parsed = JSON.parse(content);
     } catch (e) {
-      log('activation file corrupted: ' + e.message);
       return 'corrupted';
     }
     const { code, deviceId } = parsed;
-    if (!code || !deviceId) { log('activation file missing code or deviceId'); return false; }
-    log(`checkActivation: code=${code}, deviceId=${deviceId}`);
+    if (!code || !deviceId) { return false; }
     // Сначала ищем в activation_codes
     let { data, error } = await supabase
       .from('activation_codes')
@@ -46,26 +39,22 @@ async function checkActivation() {
         .single();
       data = res.data;
       error = res.error;
-      if (error || !data) { log('activation code not found in any table'); return false; }
+      if (error || !data) { return false; }
       // Проверка deviceId и срока действия для ограниченных кодов
-      if (data.device_id && data.device_id !== deviceId) { log('deviceId mismatch (limited)'); return 'mismatch'; }
-      if (data.expires_at && new Date(data.expires_at) < new Date()) { log('code expired (limited)'); return 'expired'; }
-      log('activation OK (limited)');
+      if (data.device_id && data.device_id !== deviceId) { return 'mismatch'; }
+      if (data.expires_at && new Date(data.expires_at) < new Date()) { return 'expired'; }
       return true;
     }
     // Проверка deviceId для безлимитных
-    if (data.device_id && data.device_id !== deviceId) { log('deviceId mismatch'); return 'mismatch'; }
-    log('activation OK');
+    if (data.device_id && data.device_id !== deviceId) { return 'mismatch'; }
     return true;
   } catch (e) {
-    log('checkActivation error: ' + e.message);
     return false;
   }
 }
 
 async function activateWithCode(code) {
   const deviceId = getDeviceId();
-  log(`activateWithCode: code=${code}, deviceId=${deviceId}`);
   // Сначала ищем в activation_codes
   let { data, error } = await supabase
     .from('activation_codes')
@@ -83,15 +72,13 @@ async function activateWithCode(code) {
     data = res.data;
     error = res.error;
     table = 'limited_activation_codes';
-  if (error || !data) { log('Код не найден'); return { ok: false, message: 'Код не найден' }; }
+  if (error || !data) { return { ok: false, message: 'Код не найден' }; }
     if (data.device_id && data.device_id !== deviceId) {
-      log('Код уже активирован на другом устройстве (limited)');
-      return { ok: false, message: 'Код уже активирован на другом устройстве' };
+      return { ok: false, message: 'Код уже активирован на другом устройстве (limited)' };
     }
     // Проверка срока действия (если уже активирован)
     if (data.expires_at && new Date(data.expires_at) < new Date()) {
-      log('Срок действия кода истёк (limited)');
-      return { ok: false, message: 'Срок действия кода истёк' };
+      return { ok: false, message: 'Срок действия кода истёк (limited)' };
     }
     // Если код ещё не активирован — активируем и выставляем expires_at
     let expires_at = null;
@@ -106,27 +93,22 @@ async function activateWithCode(code) {
       .from('limited_activation_codes')
       .update({ device_id: deviceId, activated_at: new Date().toISOString(), expires_at })
       .eq('code', code);
-    log(`Supabase update (limited): ${JSON.stringify({updateError})}`);
-    if (updateError) { log('Ошибка активации'); return { ok: false, message: 'Ошибка активации' }; }
+    if (updateError) { return { ok: false, message: 'Ошибка активации' }; }
     const file = getActivationFile();
     fs.writeFileSync(file, JSON.stringify({ code, deviceId }), 'utf8');
-    log('Активация успешна, данные сохранены (limited)');
     return { ok: true };
   }
   // Безлимитный код
   if (data.device_id && data.device_id !== deviceId) {
-    log('Код уже активирован на другом устройстве');
     return { ok: false, message: 'Код уже активирован на другом устройстве' };
   }
   const { error: updateError } = await supabase
     .from('activation_codes')
     .update({ device_id: deviceId, activated_at: new Date().toISOString() })
     .eq('code', code);
-  log(`Supabase update: ${JSON.stringify({updateError})}`);
-  if (updateError) { log('Ошибка активации'); return { ok: false, message: 'Ошибка активации' }; }
+  if (updateError) { return { ok: false, message: 'Ошибка активации' }; }
   const file = getActivationFile();
   fs.writeFileSync(file, JSON.stringify({ code, deviceId }), 'utf8');
-  log('Активация успешна, данные сохранены');
   return { ok: true };
 }
 
