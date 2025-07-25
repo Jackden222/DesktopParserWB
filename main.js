@@ -52,7 +52,6 @@ function createWindow(isActivated) {
       // transparent: true, // убрано
       // roundedCorners: true, // убрано
       webPreferences: {
-        preload: path.join(__dirname, 'renderer.js'),
         nodeIntegration: true,
         contextIsolation: false,
         enableRemoteModule: true,

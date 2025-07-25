@@ -29,7 +29,7 @@ let sortState = { col: null, dir: 1 };
 
 // --- АКТИВАЦИЯ ---
 let isActivated = false;
-const APP_VERSION = '1.0.6'; // Текущая версия приложения
+const APP_VERSION = '1.0.8'; // Текущая версия приложения
 const GITHUB_OWNER = 'ВАШ_GITHUB_НИК'; // заменить на ваш ник
 const GITHUB_REPO = 'ВАШ_РЕПОЗИТОРИЙ'; // заменить на ваш репозиторий
 const GITHUB_BRANCH = 'production';
@@ -411,6 +411,60 @@ window.addEventListener('DOMContentLoaded', () => {
   if (checkUpdateBtn) {
     checkUpdateBtn.onclick = () => {
       ipcRenderer.invoke('check-for-updates');
+    };
+  }
+  // --- Юнит-экономика ---
+  function renderUnitEconomicsPage() {
+    const page = document.getElementById('unit-economics-page');
+    if (!page) return;
+    // Модальное окно при первом запуске
+    if (!localStorage.getItem('unitEconomicsModalShown')) {
+      const modal = document.createElement('div');
+      modal.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.25);z-index:2000;display:flex;align-items:center;justify-content:center;';
+      modal.innerHTML = `<div style="background:#fff;padding:32px 28px;border-radius:18px;box-shadow:0 4px 24px #7c3aed33;min-width:320px;max-width:90vw;text-align:center;">
+        <div style="font-size:1.2rem;font-weight:600;margin-bottom:18px;">Ваши данные не передаются третьим лицам.<br>Всё сохраняется на вашем компьютере в формате Excel (.xlsx).</div>
+        <button id="unit-economics-modal-ok" style="padding:10px 32px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#7c3aed 60%,#2d72d9 100%);color:#fff;border:none;cursor:pointer;font-weight:700;">Ок</button>
+      </div>`;
+      document.body.appendChild(modal);
+      document.getElementById('unit-economics-modal-ok').onclick = () => {
+        localStorage.setItem('unitEconomicsModalShown', '1');
+        modal.remove();
+      };
+    }
+    // Вкладки
+    const tabs = [
+      { id: 'products', label: 'Товары' },
+      { id: 'fbw', label: 'WB FBW' },
+      { id: 'fbs', label: 'WB FBS' }
+    ];
+    let activeTab = localStorage.getItem('unitEconomicsActiveTab') || 'products';
+    page.innerHTML = `
+      <div style="display:flex;gap:12px;margin-bottom:18px;justify-content:center;margin:auto;">
+        ${tabs.map(tab => `<button class="unit-tab-btn" data-tab="${tab.id}" style="padding:10px 24px;font-size:1.08rem;border-radius:10px;border:none;cursor:pointer;font-weight:600;background:${activeTab===tab.id?'#7c3aed':'#ede9fe'};color:${activeTab===tab.id?'#fff':'#7c3aed'};">${tab.label}</button>`).join('')}
+      </div>
+      <div id="unit-economics-tab-content"></div>
+    `;
+    // Обработчик вкладок
+    page.querySelectorAll('.unit-tab-btn').forEach(btn => {
+      btn.onclick = () => {
+        activeTab = btn.dataset.tab;
+        localStorage.setItem('unitEconomicsActiveTab', activeTab);
+        renderUnitEconomicsPage();
+      };
+    });
+    // Контент вкладки
+    renderUnitEconomicsTab(activeTab);
+  }
+
+  // --- Кнопка и страница ---
+  const unitEconomicsBtn = document.getElementById('unit-economics-btn');
+  const unitEconomicsPage = document.getElementById('unit-economics-page');
+  if (unitEconomicsBtn && unitEconomicsPage) {
+    unitEconomicsBtn.onclick = () => {
+      document.getElementById('main-page').style.display = 'none';
+      document.getElementById('compare-page').style.display = 'none';
+      unitEconomicsPage.style.display = 'block';
+      renderUnitEconomicsPage();
     };
   }
 });
@@ -1172,4 +1226,168 @@ function buildCompareTableForExport(s1, s2, diff, f1, f2) {
 function formatPercent(val) {
   if (typeof val !== 'number' || isNaN(val)) return '';
   return (val > 0 ? '+' : '') + val.toFixed(2) + '%';
+} 
+
+function getDefaultTable(tab) {
+  if (tab === 'products') {
+    return [
+      ['Группа товаров', 'Артикул', 'Товар', 'Закупка', 'Посредник %', 'Брак %', 'Доставка', 'Маркировка', 'Хранение', 'Упаковка', 'Себест итого', 'Остаток, шт', 'Итого по остатку'],
+      ['', '', '', '', '', '', '', '', '', '', '', '', '']
+    ];
+  }
+  if (tab === 'fbw') {
+    return [
+      ['Товар', 'Цена', 'Скидка %', 'СПП %', 'Комиссия %', 'Себест.', 'Платная приёмка', 'Продвижение %', 'Фактическая цена', 'Комиссия', 'Выручка', 'Налоги', 'Продвижение', 'Прибыль', 'ROI', 'Маржинальность'],
+      ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+    ];
+  }
+  if (tab === 'fbs') {
+    return [
+      ['Товар', 'Цена', 'Скидка %', 'СПП %', 'Комиссия %', 'Себест.', 'Платная приёмка', 'Продвижение %', 'Выкуп %', 'Фактическая цена', 'Комиссия', 'Выручка', 'Налоги', 'Продвижение', 'Прибыль', 'ROI', 'Маржинальность'],
+      ['', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '', '']
+    ];
+  }
+  return [['']];
+}
+
+function renderUnitEconomicsTab(tab) {
+  const content = document.getElementById('unit-economics-tab-content');
+  if (!content) return;
+  let data = getDefaultTable(tab);
+  let localKey = 'unitEconomicsData_' + tab;
+  let localData = localStorage.getItem(localKey);
+  let filePath = localStorage.getItem('unitEconomicsXlsxPath');
+  let showAttachBtn = false;
+  if (localData) {
+    try {
+      data = JSON.parse(localData);
+      for (let i = 1; i < data.length; ++i) {
+        while (data[i].length < data[0].length) data[i].push('');
+      }
+    } catch (e) {}
+  } else if (filePath) {
+    try {
+      const wb = XLSX.readFile(filePath);
+      const ws = wb.Sheets[tabToSheet(tab)];
+      if (ws) {
+        data = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        for (let i = 1; i < data.length; ++i) {
+          while (data[i].length < data[0].length) data[i].push('');
+        }
+      }
+    } catch (e) {}
+  } else {
+    showAttachBtn = true;
+  }
+  content.innerHTML =
+    (showAttachBtn ? `<div style='text-align:center;margin-bottom:18px;'><button id='unit-economics-attach-file' style='padding:10px 24px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#7c3aed 60%,#2d72d9 100%);color:#fff;border:none;cursor:pointer;font-weight:700;box-shadow:0 2px 8px #7c3aed11;'>Добавить существующий файл</button></div>` : '') +
+    `<div style="overflow-x:auto;margin-top:32px;"><table id="unit-economics-table" style="margin:0 auto;border-collapse:separate;border-spacing:0;min-width:900px;max-width:100%;box-shadow:0 2px 16px #7c3aed22,0 1.5px 8px #ede9fe;border-radius:12px;overflow:hidden;background:#fff;width:auto;">
+    <thead><tr><th style='background:#fff;border:none;'></th>${data[0].map((h, idx) => `<th style='padding:8px 10px;background:#7c3aed;color:#fff;font-size:1.01rem;font-weight:700;${idx===0?'border-top-left-radius:12px;':''}${idx===data[0].length-1?'border-top-right-radius:12px;':''}'>${h}</th>`).join('')}</tr></thead>
+    <tbody>
+      ${data.slice(1).map((row, i) => `<tr style='background:${i%2===0?'#f3f0fa':'#fff'};'><td style='background:#fff;text-align:center;vertical-align:middle;'><button class='unit-economics-del-row' data-row='${i+1}' style='background:none;border:none;color:#d32f2f;font-size:1.2rem;cursor:pointer;outline:none;' title='Удалить строку'>&times;</button></td>${row.map((cell, j) => `<td style='padding:2px 4px;border-bottom:1px solid #eee;${j===0?'border-left:1.5px solid #ede9fe;border-bottom-left-radius:10px;':''}${j===row.length-1?'border-right:1.5px solid #ede9fe;border-bottom-right-radius:10px;':''}'><input type='text' data-row='${i+1}' data-col='${j}' value='${cell ?? ''}' style='width:100%;min-width:60px;max-width:180px;padding:2px 4px;border-radius:6px;border:1px solid #ccc;font-size:0.97rem;transition:border 0.18s,box-shadow 0.18s;outline:none;background:#fafaff;box-sizing:border-box;' onfocus="this.style.borderColor='#7c3aed';this.style.boxShadow='0 0 0 2px #a78bfa33';" onblur="this.style.borderColor='#ccc';this.style.boxShadow='none';" ${j===data[0].length-1?'readonly':''}></td>`).join('')}</tr>`).join('')}
+    </tbody>
+  </table></div>
+  <div style='margin-top:18px;text-align:center;'>
+    <button id='unit-economics-add-row' style='padding:10px 24px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#a78bfa 60%,#7c3aed 100%);color:#fff;border:none;cursor:pointer;font-weight:700;margin-right:18px;box-shadow:0 2px 8px #7c3aed11;'>Добавить строку</button>
+    <button id='unit-economics-save-btn' style='padding:12px 32px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#7c3aed 60%,#2d72d9 100%);color:#fff;border:none;cursor:pointer;font-weight:700;box-shadow:0 2px 8px #7c3aed11;'>Сохранить в xlsx...</button>
+  </div>`;
+  if (showAttachBtn) {
+    document.getElementById('unit-economics-attach-file').onclick = async () => {
+      const { dialog } = remote;
+      const res = await dialog.showOpenDialog({
+        title: 'Выберите xlsx-файл',
+        filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+        properties: ['openFile']
+      });
+      if (res.canceled || !res.filePaths.length) return;
+      localStorage.setItem('unitEconomicsXlsxPath', res.filePaths[0]);
+      renderUnitEconomicsTab(tab);
+    };
+  }
+  content.querySelectorAll('input[type=text]').forEach(input => {
+    input.oninput = () => {
+      const row = Number(input.dataset.row);
+      const col = Number(input.dataset.col);
+      data[row][col] = input.value;
+      if (tab === 'products') {
+        recalcProductsRow(data, row);
+        const table = document.getElementById('unit-economics-table');
+        if (table && table.rows[row]) {
+          // Обновляем значения в input'ах для "Себест итого" и "Итого по остатку"
+          const val1 = data[row][10] ?? '';
+          const val2 = data[row][12] ?? '';
+          table.rows[row].cells[11].querySelector('input').value = val1;
+          table.rows[row].cells[12].querySelector('input').value = val2;
+        }
+      }
+      localStorage.setItem(localKey, JSON.stringify(data));
+    };
+  });
+  content.querySelectorAll('.unit-economics-del-row').forEach(btn => {
+    btn.onclick = () => {
+      const rowIdx = Number(btn.dataset.row);
+      data.splice(rowIdx, 1);
+      localStorage.setItem(localKey, JSON.stringify(data));
+      renderUnitEconomicsTab(tab);
+    };
+  });
+  document.getElementById('unit-economics-add-row').onclick = () => {
+    data.push(new Array(data[0].length).fill(''));
+    localStorage.setItem(localKey, JSON.stringify(data));
+    renderUnitEconomicsTab(tab);
+  };
+  document.getElementById('unit-economics-save-btn').onclick = async () => {
+    const { dialog } = remote;
+    const res = await dialog.showSaveDialog({
+      title: 'Сохранить как xlsx',
+      filters: [{ name: 'Excel', extensions: ['xlsx'] }],
+      defaultPath: 'unit-economics.xlsx'
+    });
+    if (res.canceled || !res.filePath) return;
+    saveUnitEconomicsTable(tab, data, res.filePath);
+    localStorage.setItem('unitEconomicsXlsxPath', res.filePath);
+    alert('Данные успешно сохранены!');
+  };
+}
+
+function tabToSheet(tab) {
+  switch (tab) {
+    case 'products': return 'Товары';
+    case 'fbw': return 'WB FBW';
+    case 'fbs': return 'WB FBS';
+    default: return 'Товары';
+  }
+}
+
+function saveUnitEconomicsTable(tab, data, filePath) {
+  const wb = XLSX.utils.book_new();
+  const ws = XLSX.utils.json_to_sheet(data);
+  XLSX.utils.book_append_sheet(wb, ws, tabToSheet(tab));
+  XLSX.writeFile(wb, filePath);
+}
+
+function recalcProductsRow(data, rowIndex) {
+  const row = data[rowIndex];
+  // Индексы для таблицы 'Товары'
+  // ['Группа товаров', 'Артикул', 'Товар', 'Закупка', 'Посредник %', 'Брак %', 'Доставка', 'Маркировка', 'Хранение', 'Упаковка', 'Себест итого', 'Остаток, шт', 'Итого по остатку']
+  const zakup = Number(row[3]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+  const posredPerc = Number(row[4]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+  const brakPerc = Number(row[5]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+  const dostavka = Number(row[6]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+  const markirovka = Number(row[7]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+  const khranenie = Number(row[8]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+  const upakovka = Number(row[9]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+  const ostatok = Number(row[11]?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0;
+
+  // Формула себестоимости
+  const sebestoim = zakup + (zakup * posredPerc / 100) + (zakup * brakPerc / 100) + dostavka + markirovka + khranenie + upakovka;
+  // Итог по остатку
+  const itogoOstatok = sebestoim * ostatok;
+
+  // Обновляем значения в строке
+  row[10] = sebestoim ? sebestoim.toLocaleString('ru-RU', {maximumFractionDigits:2}) : '';
+  row[12] = itogoOstatok ? itogoOstatok.toLocaleString('ru-RU', {maximumFractionDigits:2}) : '';
+
+  // Остальной код (оставляем для совместимости, если потребуется)
+  // ... существующая логика по name и т.д. ...
 } 
