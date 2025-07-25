@@ -294,6 +294,7 @@ window.addEventListener('DOMContentLoaded', () => {
     compareBtn.onclick = () => {
       mainPage.style.display = 'none';
       comparePage.style.display = 'block';
+      if (unitEconomicsPage) unitEconomicsPage.style.display = 'none';
       fillCompareSelects();
     };
   }
@@ -303,6 +304,7 @@ window.addEventListener('DOMContentLoaded', () => {
     parserBtn.onclick = () => {
       if (comparePage) comparePage.style.display = 'none';
       if (reviewsPage) reviewsPage.style.display = 'none';
+      if (unitEconomicsPage) unitEconomicsPage.style.display = 'none';
       mainPage.style.display = 'block';
     };
   }
