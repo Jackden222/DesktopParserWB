@@ -9,7 +9,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
+  "description": "Wildberries Parser - Desktop application for parsing Wildberries data",
   "dependencies": {
     "@babel/preset-env": "^7.28.0",
     "@babel/preset-react": "^7.27.1",
@@ -39,17 +39,22 @@
     "appId": "Telegram:@PavelQSS",
     "productName": "WildberriesParser",
     "icon": "build/icon",
-    "publish": [
-      {
-        "provider": "github",
-        "owner": "Jackden222",
-        "repo": "DesktopParserWB"
-      }
-    ],
+    "publish": null,
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false,
       "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "WildberriesParser",
+      "deleteAppDataOnUninstall": false,
+      "perMachine": false,
+      "runAfterFinish": false,
+      "include": "build/installer.nsh"
     },
     "mac": {
       "icon": "build/icon.icns"
