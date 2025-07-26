@@ -45,9 +45,11 @@ function setupAutoUpdater(win) {
 function createWindow(isActivated) {
   try {
     mainWindow = new BrowserWindow({
-      width: 1100,
-      height: 700,
-      icon: path.join(__dirname, 'icons.ico'),
+      width: 1250,
+      height: 800,
+      minWidth: 1000,
+      minHeight: 600,
+      icon: path.join(__dirname, 'build', process.platform === 'darwin' ? 'icon.icns' : 'icon.ico'),
       // frame: false, // убрано для дефолтных кнопок
       // transparent: true, // убрано
       // roundedCorners: true, // убрано

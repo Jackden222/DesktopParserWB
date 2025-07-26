@@ -38,6 +38,7 @@
   "build": {
     "appId": "Telegram:@PavelQSS",
     "productName": "WildberriesParser",
+    "icon": "build/icon",
     "publish": [
       {
         "provider": "github",
@@ -47,7 +48,11 @@
     ],
     "win": {
       "target": "nsis",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": false,
+      "icon": "build/icon.ico"
+    },
+    "mac": {
+      "icon": "build/icon.icns"
     }
   }
 }

@@ -78,11 +78,23 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
   let safeQuery = query && query.trim() ? query.trim() : 'носки';
   safeQuery = safeQuery.replace(/[\/:*?"<>|]/g, '_');
   const saveDir = process.argv[2] || process.cwd();
-  let fileName = require('path').join(saveDir, `${safeQuery}.xlsx`);
-  if (fs.existsSync(fileName)) {
-    // Добавляем уникальный ID (timestamp)
-    const id = Date.now();
-    fileName = require('path').join(saveDir, `${safeQuery}_${id}.xlsx`);
+  
+  // Создаем понятное имя файла с датой и количеством товаров
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('ru-RU', { 
+    day: '2-digit', 
+    month: '2-digit', 
+    year: 'numeric' 
+  }).replace(/\./g, '-');
+  
+  let fileName = require('path').join(saveDir, `${safeQuery}_${dateStr}_${data.length}шт.xlsx`);
+  
+  // Если файл существует, добавляем счетчик
+  let counter = 1;
+  let originalFileName = fileName;
+  while (fs.existsSync(fileName)) {
+    fileName = require('path').join(saveDir, `${safeQuery}_${dateStr}_${data.length}шт_${counter}.xlsx`);
+    counter++;
   }
   XLSX.writeFile(workbook, fileName);
 
