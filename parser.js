@@ -55,16 +55,25 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
       if (Array.isArray(p.sizes) && p.sizes.length > 0 && p.sizes[0].price && typeof p.sizes[0].price.product === 'number') {
         price = p.sizes[0].price.product / 100;
       }
+      
+      // Создаем кликабельную ссылку для магазина
+      const shopLink = p.supplierId ? `https://www.wildberries.ru/seller/${p.supplierId}` : '';
+      const shopName = p.supplier || '';
+      const shopDisplay = shopLink ? `=HYPERLINK("${shopLink}","${shopName}")` : shopName;
+      
+      // Создаем кликабельную ссылку для товара
+      const productLink = `https://www.wildberries.ru/catalog/${p.id}/detail.aspx`;
+      const productName = p.name || '';
+      const productDisplay = productLink ? `=HYPERLINK("${productLink}","${productName}")` : productName;
+      
       return {
         'Артикул WB': String(p.id),
-        'Наименование': p.name,
+        'Наименование': productDisplay,
         'Бренд': p.brand,
         'Цена': price,
         'Рейтинг': p.reviewRating,
         'Кол-во отзывов': p.feedbacks,
-        'Ссылка на товар': `https://www.wildberries.ru/catalog/${p.id}/detail.aspx`,
-        'Магазин': p.supplier,
-        'Ссылка на магазин': p.supplierId ? `https://www.wildberries.ru/seller/${p.supplierId}` : ''
+        'Магазин': shopDisplay
       };
     })
     .filter(p => p['Цена'] !== null); // убираю фильтры по цене и рейтингу

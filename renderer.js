@@ -660,10 +660,34 @@ function renderPreviewTable() {
       row.forEach((cell, j) => {
         let td = document.createElement('td');
         
-        // Оптимизация для ссылок
-        if (previewHeaders[j] === 'Ссылка на товар' || previewHeaders[j] === 'Ссылка на магазин') {
-          if (cell && typeof cell === 'string' && cell.startsWith('http')) {
-            td.innerHTML = '<a href="#" class="link-cell">Ссылка</a>';
+        // Обработка ссылок
+        if (previewHeaders[j] === 'Наименование') {
+          // Проверяем, содержит ли ячейка гиперссылку Excel
+          if (cell && typeof cell === 'string' && cell.includes('=HYPERLINK(')) {
+            // Извлекаем URL и текст из гиперссылки Excel
+            const match = cell.match(/=HYPERLINK\("([^"]+)","([^"]+)"\)/);
+            if (match) {
+              const url = match[1];
+              const text = match[2];
+              td.innerHTML = '<a href="#" class="link-cell" data-url="' + url + '">' + text + '</a>';
+            } else {
+              td.textContent = cell ?? '';
+            }
+          } else {
+            td.textContent = cell ?? '';
+          }
+        } else if (previewHeaders[j] === 'Магазин') {
+          // Проверяем, содержит ли ячейка гиперссылку Excel
+          if (cell && typeof cell === 'string' && cell.includes('=HYPERLINK(')) {
+            // Извлекаем URL и текст из гиперссылки Excel
+            const match = cell.match(/=HYPERLINK\("([^"]+)","([^"]+)"\)/);
+            if (match) {
+              const url = match[1];
+              const text = match[2];
+              td.innerHTML = '<a href="#" class="link-cell" data-url="' + url + '">' + text + '</a>';
+            } else {
+              td.textContent = cell ?? '';
+            }
           } else {
             td.textContent = cell ?? '';
           }
@@ -715,14 +739,9 @@ function renderPreviewTable() {
       previewTable.addEventListener('click', (e) => {
         if (e.target.classList.contains('link-cell')) {
           e.preventDefault();
-          const row = e.target.closest('tr');
-          const rowIndex = Array.from(row.parentNode.children).indexOf(row); // исправлено: убрал -1
-          const linkIndex = previewHeaders.findIndex(h => h === 'Ссылка на товар' || h === 'Ссылка на магазин');
-          if (rowIndex >= 0 && linkIndex >= 0 && previewData[rowIndex]) {
-            const url = previewData[rowIndex][linkIndex];
-            if (url && typeof url === 'string' && url.startsWith('http')) {
-              shell.openExternal(url);
-            }
+          const url = e.target.getAttribute('data-url');
+          if (url && typeof url === 'string' && url.startsWith('http')) {
+            shell.openExternal(url);
           }
         }
       });
@@ -809,14 +828,33 @@ function previewFile(filename) {
       previewHeaders.forEach((h, i) => {
         obj[h] = row[i];
       });
+      
+      // Обработка наименования товара - извлекаем название из гиперссылки
+      let productName = obj['Наименование'] || '';
+      if (productName && typeof productName === 'string' && productName.includes('=HYPERLINK(')) {
+        const match = productName.match(/=HYPERLINK\("([^"]+)","([^"]+)"\)/);
+        if (match) {
+          productName = match[2]; // Берем текст ссылки (название товара)
+        }
+      }
+      
+      // Обработка магазина - извлекаем название из гиперссылки
+      let shopName = obj['Магазин'] || '';
+      if (shopName && typeof shopName === 'string' && shopName.includes('=HYPERLINK(')) {
+        const match = shopName.match(/=HYPERLINK\("([^"]+)","([^"]+)"\)/);
+        if (match) {
+          shopName = match[2]; // Берем текст ссылки (название магазина)
+        }
+      }
+      
       return {
         price: Number(obj['Цена']?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0,
         rating: Number(obj['Рейтинг']?.toString().replace(/[^\d.,-]/g, '').replace(',', '.')) || 0,
         brand: obj['Бренд'] || '',
-        shop: obj['Магазин'] || '',
-        name: obj['Наименование'] || obj['Название'] || '',
+        shop: shopName,
+        name: productName,
         reviews: Number(obj['Кол-во отзывов']?.toString().replace(/[^\d]/g, '')) || 0,
-        link: obj['Ссылка на товар'] || '',
+        link: '', // Убираем ссылку, так как теперь она в названии товара
       };
     });
     
@@ -922,19 +960,17 @@ function calculateSummary(products) {
   products.forEach(p => {
     if (!p.name) return;
     const key = p.name.trim().toLowerCase();
-    if (!nameGroups[key]) nameGroups[key] = { count: 0, sumReviews: 0, sumRating: 0, links: [] };
+    if (!nameGroups[key]) nameGroups[key] = { count: 0, sumReviews: 0, sumRating: 0 };
     nameGroups[key].count++;
     nameGroups[key].sumReviews += p.reviews || 0;
     nameGroups[key].sumRating += p.rating || 0;
-    if (p.link) nameGroups[key].links.push(p.link);
   });
   const topNames = Object.entries(nameGroups)
     .map(([name, v]) => ({
       name,
       count: v.count,
       sumReviews: v.sumReviews,
-      avgRating: v.count ? v.sumRating / v.count : 0,
-      link: v.links[0] || ''
+      avgRating: v.count ? v.sumRating / v.count : 0
     }))
     .sort((a, b) => {
       if (b.count !== a.count) return b.count - a.count;
@@ -980,7 +1016,6 @@ function renderSummary(summary) {
               <span style="color:#2d72d9;">${p.price ? ' · ' + p.price.toLocaleString('ru-RU') + '₽' : ''}</span>
               <span style="color:#f5b50a;">${p.rating ? ' · ' + p.rating.toFixed(2) + '★' : ''}</span>
               <span style="color:#888;">${p.reviews ? ' · ' + p.reviews + ' отзывов' : ''}</span>
-              ${p.link ? `<a href="#" onclick="window.openLink('${p.link}')" style="color:#6c63ff;text-decoration:underline;margin-left:6px;">Ссылка</a>` : ''}
             </li>
           `).join('') : '<li style="color:#888">Нет данных</li>'}
         </ol>
