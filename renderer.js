@@ -1140,52 +1140,161 @@ function compareStats(s1, s2) {
   };
 }
 
+function extractReadableText(text) {
+  if (!text || typeof text !== 'string') return text || '';
+  
+  // Проверяем, является ли это гиперссылкой Excel
+  if (text.includes('=HYPERLINK(')) {
+    const match = text.match(/=HYPERLINK\("([^"]+)","([^"]+)"\)/);
+    if (match) {
+      return match[2]; // Возвращаем читаемый текст
+    }
+  }
+  
+  return text;
+}
+
 function renderCompareStats(s1, s2, diff, f1, f2) {
   function fmt(n, d=0) { return n ? n.toLocaleString('ru-RU', {maximumFractionDigits:d}) : '-'; }
-  function pct(n) { return (n > 0 ? '+' : '') + n.toFixed(2) + '%'; }
+  function pct(n) { 
+    if (n === 0) return '';
+    const sign = n > 0 ? '+' : '';
+    const color = n > 0 ? '#10b981' : n < 0 ? '#ef4444' : '#6b7280';
+    return `<span style="color:${color};font-weight:500;">(${sign}${n.toFixed(2)}%)</span>`;
+  }
+  
+  // Извлекаем читаемые названия из гиперссылок
+  const s1TopShop = extractReadableText(s1.topShop);
+  const s2TopShop = extractReadableText(s2.topShop);
+  
   return `
-    <div style="display:flex;gap:32px;justify-content:center;align-items:flex-start;">
-      <div style="flex:1;min-width:320px;">
-        <div style="font-weight:600;margin-bottom:8px;color:#7c3aed;">${f1}</div>
-        <ul style="font-size:1.08rem;line-height:1.7;">
-          <li>Всего товаров: <b>${fmt(s1.count)}</b></li>
-          <li>Средняя цена: <b>${fmt(s1.avgPrice)}</b></li>
-          <li>Медиана цены: <b>${fmt(s1.medianPrice)}</b></li>
-          <li>Максимальная цена: <b>${fmt(s1.maxPrice)}</b></li>
-          <li>Минимальная цена: <b>${fmt(s1.minPrice)}</b></li>
-          <li>Всего отзывов: <b>${fmt(s1.totalReviews)}</b></li>
-          <li>Средний рейтинг: <b>${fmt(s1.avgRating,2)}</b></li>
-          <li>Топ бренд: <b>${s1.topBrand}</b></li>
-          <li>Топ магазин: <b>${s1.topShop}</b></li>
-        </ul>
+    <div class="compare-stats-container">
+      <div class="compare-stats-wrapper">
+        <div class="compare-stats-card">
+          <div class="compare-stats-header">${f1}</div>
+          <div class="compare-stats-content">
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Всего товаров:</span>
+              <span class="compare-stats-value">${fmt(s1.count)}</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Средняя цена:</span>
+              <span class="compare-stats-value">${fmt(s1.avgPrice)} ₽</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Медиана цены:</span>
+              <span class="compare-stats-value">${fmt(s1.medianPrice)} ₽</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Максимальная цена:</span>
+              <span class="compare-stats-value">${fmt(s1.maxPrice)} ₽</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Минимальная цена:</span>
+              <span class="compare-stats-value">${fmt(s1.minPrice)} ₽</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Всего отзывов:</span>
+              <span class="compare-stats-value">${fmt(s1.totalReviews)}</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Средний рейтинг:</span>
+              <span class="compare-stats-value">${fmt(s1.avgRating,2)} ⭐</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Топ бренд:</span>
+              <span class="compare-stats-value">${s1.topBrand}</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Топ магазин:</span>
+              <span class="compare-stats-value">${s1TopShop}</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="compare-stats-card">
+          <div class="compare-stats-header">${f2}</div>
+          <div class="compare-stats-content">
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Всего товаров:</span>
+              <div class="compare-stats-value-group">
+                <div class="compare-stats-value">${fmt(s2.count)}</div>
+                <div class="compare-stats-change">${pct(diff.countGrowth)}</div>
+              </div>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Средняя цена:</span>
+              <div class="compare-stats-value-group">
+                <div class="compare-stats-value">${fmt(s2.avgPrice)} ₽</div>
+                <div class="compare-stats-change">${pct(diff.priceGrowth)}</div>
+              </div>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Медиана цены:</span>
+              <span class="compare-stats-value">${fmt(s2.medianPrice)} ₽</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Максимальная цена:</span>
+              <div class="compare-stats-value-group">
+                <div class="compare-stats-value">${fmt(s2.maxPrice)} ₽</div>
+                <div class="compare-stats-change">${pct(diff.maxPriceGrowth)}</div>
+              </div>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Минимальная цена:</span>
+              <div class="compare-stats-value-group">
+                <div class="compare-stats-value">${fmt(s2.minPrice)} ₽</div>
+                <div class="compare-stats-change">${pct(diff.minPriceGrowth)}</div>
+              </div>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Всего отзывов:</span>
+              <div class="compare-stats-value-group">
+                <div class="compare-stats-value">${fmt(s2.totalReviews)}</div>
+                <div class="compare-stats-change">${pct(diff.reviewsGrowth)}</div>
+              </div>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Средний рейтинг:</span>
+              <div class="compare-stats-value-group">
+                <div class="compare-stats-value">${fmt(s2.avgRating,2)} ⭐</div>
+                <div class="compare-stats-change">${pct(diff.ratingGrowth)}</div>
+              </div>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Топ бренд:</span>
+              <span class="compare-stats-value">${s2.topBrand}</span>
+            </div>
+            <div class="compare-stats-row">
+              <span class="compare-stats-label">Топ магазин:</span>
+              <span class="compare-stats-value">${s2TopShop}</span>
+            </div>
+          </div>
+        </div>
       </div>
-      <div style="flex:1;min-width:320px;">
-        <div style="font-weight:600;margin-bottom:8px;color:#7c3aed;">${f2}</div>
-        <ul style="font-size:1.08rem;line-height:1.7;">
-          <li>Всего товаров: <b>${fmt(s2.count)}</b> (${pct(diff.countGrowth)})</li>
-          <li>Средняя цена: <b>${fmt(s2.avgPrice)}</b> (${pct(diff.priceGrowth)})</li>
-          <li>Медиана цены: <b>${fmt(s2.medianPrice)}</b></li>
-          <li>Максимальная цена: <b>${fmt(s2.maxPrice)}</b> (${pct(diff.maxPriceGrowth)})</li>
-          <li>Минимальная цена: <b>${fmt(s2.minPrice)}</b> (${pct(diff.minPriceGrowth)})</li>
-          <li>Всего отзывов: <b>${fmt(s2.totalReviews)}</b> (${pct(diff.reviewsGrowth)})</li>
-          <li>Средний рейтинг: <b>${fmt(s2.avgRating,2)}</b> (${pct(diff.ratingGrowth)})</li>
-          <li>Топ бренд: <b>${s2.topBrand}</b></li>
-          <li>Топ магазин: <b>${s2.topShop}</b></li>
-        </ul>
-      </div>
-    </div>
-    <div style="margin-top:32px;display:flex;gap:32px;justify-content:center;align-items:flex-start;">
-      <div style="flex:1;min-width:320px;">
-        <div style="font-weight:600;margin-bottom:8px;color:#7c3aed;">Новые товары во втором файле (${diff.newItems.length}):</div>
-        <div style="font-size:0.98rem;max-height:180px;overflow:auto;">${diff.newItems.map(x => `<div>${x}</div>`).join('') || '-'}</div>
-      </div>
-      <div style="flex:1;min-width:320px;">
-        <div style="font-weight:600;margin-bottom:8px;color:#7c3aed;">Исчезнувшие товары или нет в наличии (${diff.goneItems.length}):</div>
-        <div style="font-size:0.98rem;max-height:180px;overflow:auto;">${diff.goneItems.map(x => `<div>${x}</div>`).join('') || '-'}</div>
+      
+      <div class="compare-items-wrapper">
+        <div class="compare-items-card">
+          <div class="compare-items-header new">
+            🆕 Новые товары (${diff.newItems.length})
+          </div>
+          <div class="compare-items-list">
+            ${diff.newItems.length ? diff.newItems.map(x => `<div class="compare-items-item">📦 ${x}</div>`).join('') : '<div class="compare-items-empty">Нет новых товаров</div>'}
+          </div>
+        </div>
+        
+        <div class="compare-items-card">
+          <div class="compare-items-header removed">
+            ❌ Исчезнувшие товары (${diff.goneItems.length})
+          </div>
+          <div class="compare-items-list">
+            ${diff.goneItems.length ? diff.goneItems.map(x => `<div class="compare-items-item">📦 ${x}</div>`).join('') : '<div class="compare-items-empty">Нет исчезнувших товаров</div>'}
+          </div>
+        </div>
       </div>
     </div>
   `;
-} 
+}
 
 // --- Формирование данных для экспорта в Excel ---
 function buildCompareTableForExport(s1, s2, diff, f1, f2) {
