@@ -1,5 +1,5 @@
 !macro customInstall
-  ; Отключаем проверку процессов через переопределение функций
+  ; Отключаем проверку процессов
   !define MULTIUSER_EXECUTIONLEVEL "CurrentUser"
   !define MULTIUSER_INSTALLMODE_INSTDIR "${PRODUCT_NAME}"
   !define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_KEY "Software\${PRODUCT_NAME}"
@@ -11,4 +11,6 @@
 !macroend
 
 ; Отключаем проверку процессов глобально
-!define MULTIUSER_INSTALLMODE_NO_RUNNING_APPS_CHECK 
+!ifndef MULTIUSER_INSTALLMODE_NO_RUNNING_APPS_CHECK
+  !define MULTIUSER_INSTALLMODE_NO_RUNNING_APPS_CHECK
+!endif 
