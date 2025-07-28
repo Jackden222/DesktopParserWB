@@ -225,6 +225,4 @@ ipcMain.handle('get-activation-info', async () => {
   return info;
 });
 
-ipcMain.handle('check-for-updates', () => {
-  autoUpdater.checkForUpdatesAndNotify();
-}); 
+ 
