@@ -68,10 +68,23 @@ function selectTable(filename) {
 let compareTableData = null;
 
 window.addEventListener('DOMContentLoaded', () => {
+  // Принудительно запрашиваем статус активации при загрузке
+  ipcRenderer.invoke('get-activation-info').then(info => {
+    console.log('Информация об активации при загрузке:', info);
+    isActivated = info !== null;
+    renderActivation();
+  }).catch(err => {
+    console.error('Ошибка получения статуса активации:', err);
+    isActivated = false;
+    renderActivation();
+  });
+  
   ipcRenderer.on('activation-status', (event, status) => {
+    console.log('Получен статус активации:', status);
     isActivated = status;
     renderActivation();
   });
+  
   checkForUpdate();
   ipcRenderer.on('update-message', (event, msg) => {
     alert(msg); // Можно заменить на красивый UI, если потребуется
@@ -411,20 +424,19 @@ window.addEventListener('DOMContentLoaded', () => {
 });
 
 function renderActivation() {
+  console.log('renderActivation вызвана, isActivated:', isActivated);
   let actBlock = document.getElementById('activation-block');
   let indicator = document.getElementById('activation-indicator');
   
   // --- Блокировка элементов ---
-  if (typeof isActivated !== 'undefined') {
-    const searchInput = document.getElementById('search-input');
-    const searchBtn = document.getElementById('search-btn');
-    if (searchInput) searchInput.disabled = !isActivated;
-    if (searchBtn) searchBtn.disabled = !isActivated;
-    // Блокировка других элементов (пример)
-    const exportBtn = document.getElementById('export-btn');
-    if (exportBtn) exportBtn.disabled = !isActivated;
-    // Можно добавить блокировку предпросмотра, сортировки и т.д. по аналогии
-  }
+  const searchInput = document.getElementById('search-input');
+  const searchBtn = document.getElementById('search-btn');
+  if (searchInput) searchInput.disabled = !isActivated;
+  if (searchBtn) searchBtn.disabled = !isActivated;
+  // Блокировка других элементов (пример)
+  const exportBtn = document.getElementById('export-btn');
+  if (exportBtn) exportBtn.disabled = !isActivated;
+  // Можно добавить блокировку предпросмотра, сортировки и т.д. по аналогии
   
   // --- Индикатор ---
   if (indicator) {

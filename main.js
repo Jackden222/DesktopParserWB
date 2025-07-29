@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, nativeImage } = require('electron');
 const fs = require('fs');
 const path = require('path');
 const { exec } = require('child_process');
@@ -13,6 +13,11 @@ let mainWindow = null;
 
 // Интегрированная функция парсинга
 async function fetchWB(query, saveDir) {
+  // Проверяем активацию перед выполнением парсинга
+  if (!activationPassed) {
+    throw new Error('Приложение не активировано');
+  }
+  
   const logStream = fs.createWriteStream('log.txt', { flags: 'a' });
   logStream.write(`\n[${new Date().toISOString()}] Запуск парсинга: '${query}'\n`);
   let page = 1;
@@ -125,12 +130,15 @@ async function fetchWB(query, saveDir) {
 
 async function startApp() {
   let activated = await activation.checkActivation();
+  console.log('Результат проверки активации:', activated);
+  
   if (activated === true) {
     activationPassed = true;
+    createWindow(true);
   } else {
     activationPassed = false;
+    createWindow(false);
   }
-  createWindow(activationPassed);
 }
 
 function setupAutoUpdater(win) {
@@ -158,12 +166,15 @@ function setupAutoUpdater(win) {
 
 function createWindow(isActivated) {
   try {
+    const iconPath = path.join(__dirname, 'build', 'wildberris.png');
+    const appIcon = nativeImage.createFromPath(iconPath);
+    
     mainWindow = new BrowserWindow({
       width: 1250,
       height: 800,
       minWidth: 1000,
       minHeight: 600,
-      icon: path.join(__dirname, 'build', process.platform === 'darwin' ? 'icon.icns' : 'icon.ico'),
+      icon: appIcon,
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
@@ -177,6 +188,20 @@ function createWindow(isActivated) {
       mainWindow.webContents.send('activation-status', isActivated);
     });
     setupAutoUpdater(mainWindow);
+    
+    // Периодическая проверка активации каждые 30 секунд
+    if (isActivated) {
+      setInterval(async () => {
+        const currentActivation = await activation.checkActivation();
+        if (currentActivation !== true) {
+          console.log('Активация стала недействительной:', currentActivation);
+          activationPassed = false;
+          if (mainWindow) {
+            mainWindow.webContents.send('activation-status', false);
+          }
+        }
+      }, 30000); // 30 секунд
+    }
   } catch (e) {
     console.error('createWindow error: ' + e.message);
   }
@@ -199,6 +224,11 @@ app.on('window-all-closed', function () {
 
 // IPC: запуск парсера по запросу из renderer
 ipcMain.handle('run-parser', async (event, query, saveDir) => {
+  // Проверяем активацию перед запуском парсера
+  if (!activationPassed) {
+    return { success: false, error: 'Приложение не активировано' };
+  }
+  
   try {
     console.log('Запуск парсера с запросом:', query, 'в папку:', saveDir);
     const result = await fetchWB(query, saveDir);
