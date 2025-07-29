@@ -12,8 +12,6 @@ body {
   display: flex;
   min-width: 350px;
   min-height: 100vh;
-  border-bottom-left-radius: 16px;
-  border-bottom-right-radius: 16px;
   overflow: hidden;
   background: #fff;
 }
@@ -877,7 +875,7 @@ th.sortable {
 #compare-page {
   background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
   border-radius: 16px;
-  padding: 24px;
+  padding: 14px;
   margin: 0 auto;
   max-width: 1400px;
   min-height: 80vh;
@@ -895,7 +893,7 @@ th.sortable {
 #compare-page h3 {
   text-align: center;
   color: #64748b;
-  margin: 4px 0 32px 0;
+  margin: 4px 0 10px 0;
   font-size: 0.95rem;
   font-weight: 500;
   line-height: 1.4;
