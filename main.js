@@ -183,7 +183,10 @@ function setupAutoUpdater(win) {
 
 function createWindow(isActivated) {
   try {
-    const iconPath = path.join(__dirname, 'build', 'wildberris.png');
+    // Используем правильную иконку для Windows
+    const iconPath = process.platform === 'win32' 
+      ? path.join(__dirname, 'build', 'icon.ico')
+      : path.join(__dirname, 'build', 'wildberris.png');
     const appIcon = nativeImage.createFromPath(iconPath);
     
     mainWindow = new BrowserWindow({
@@ -192,11 +195,17 @@ function createWindow(isActivated) {
       minWidth: 1320,
       minHeight: 800,
       icon: appIcon,
+      show: false, // Не показываем окно сразу
       webPreferences: {
         nodeIntegration: true,
         contextIsolation: false,
         enableRemoteModule: true,
       },
+    });
+    
+    // Показываем окно только после полной загрузки
+    mainWindow.once('ready-to-show', () => {
+      mainWindow.show();
     });
     remoteMain.enable(mainWindow.webContents);
     mainWindow.loadFile('index.html');

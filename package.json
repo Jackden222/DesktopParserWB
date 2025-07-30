@@ -38,14 +38,15 @@
   "build": {
     "appId": "Telegram:@PavelQSS",
     "productName": "WildberriesParser",
-    "icon": "build/wildberris.png",
+    "icon": "build/icon.ico",
     "publish": null,
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false,
-      "icon": "build/wildberris.png",
+      "icon": "build/icon.ico",
       "requestedExecutionLevel": "asInvoker",
-      "artifactName": "${productName}-${version}.${ext}"
+      "artifactName": "${productName}-${version}.${ext}",
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
       "oneClick": false,
@@ -57,8 +58,8 @@
       "perMachine": false,
       "runAfterFinish": false,
       "include": "build/installer.nsh",
-      "installerIcon": "build/wildberris.ico",
-      "uninstallerIcon": "build/wildberris.ico",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
       "installerSidebar": "build/installer-sidebar.bmp",
       "uninstallerSidebar": "build/uninstaller-sidebar.bmp",
       "installerHeader": "build/installer-header.bmp"
