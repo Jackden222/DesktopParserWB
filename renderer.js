@@ -16,6 +16,66 @@ function ensureSaveDir() {
   }
 }
 
+// --- Система категорий ---
+let selectedCategory = null;
+let pendingSearchQuery = null;
+
+// Функции для работы с категориями
+function getCategories() {
+  const categories = localStorage.getItem('wb_parser_categories');
+  return categories ? JSON.parse(categories) : [];
+}
+
+function saveCategories(categories) {
+  localStorage.setItem('wb_parser_categories', JSON.stringify(categories));
+}
+
+function addCategory(name) {
+  const categories = getCategories();
+  if (!categories.includes(name)) {
+    categories.push(name);
+    saveCategories(categories);
+  }
+  return categories;
+}
+
+function getFileCategory(filename) {
+  const fileInfo = localStorage.getItem(`file_category_${filename}`);
+  return fileInfo ? JSON.parse(fileInfo).category : 'Без категории';
+}
+
+function saveFileCategory(filename, category) {
+  const fileInfo = {
+    category: category,
+    timestamp: Date.now()
+  };
+  localStorage.setItem(`file_category_${filename}`, JSON.stringify(fileInfo));
+}
+
+// Функции для работы с состоянием свернутых категорий
+function getCollapsedCategories() {
+  const collapsed = localStorage.getItem('wb_collapsed_categories');
+  return collapsed ? JSON.parse(collapsed) : [];
+}
+
+function saveCollapsedCategories(collapsed) {
+  localStorage.setItem('wb_collapsed_categories', JSON.stringify(collapsed));
+}
+
+function toggleCategoryCollapse(category) {
+  const collapsed = getCollapsedCategories();
+  const index = collapsed.indexOf(category);
+  
+  if (index > -1) {
+    collapsed.splice(index, 1);
+  } else {
+    collapsed.push(category);
+  }
+  
+  saveCollapsedCategories(collapsed);
+  return collapsed;
+}
+
 const searchInput = document.getElementById('search-input');
 const searchBtn = document.getElementById('search-btn');
 const fileList = document.getElementById('file-list');
@@ -83,6 +143,12 @@ window.addEventListener('DOMContentLoaded', () => {
     console.log('Получен статус активации:', status);
     isActivated = status;
     renderActivation();
+  });
+  
+  // Обработчик сохранения категории файла
+  ipcRenderer.on('file-category-saved', (event, fileName, category) => {
+    console.log('Сохранена категория для файла:', fileName, 'категория:', category);
+    saveFileCategory(fileName, category);
   });
   
   checkForUpdate();
@@ -282,13 +348,92 @@ window.addEventListener('DOMContentLoaded', () => {
       fileModalList.innerHTML = '<div style="text-align:center;color:#888;font-size:1.1rem;">Нет файлов</div>';
       return;
     }
-    let html = '';
+    
+    // Группируем файлы по категориям
+    const filesByCategory = {};
     files.forEach(f => {
-      const dateMatch = f.match(/(\d{2}\.\d{2}\.\d{4})/);
-      const dateStr = dateMatch ? ` (${dateMatch[1]})` : '';
-      html += `<div class="file-modal-link" data-fname="${f}" style="color:#7c3aed;cursor:pointer;text-decoration:underline;margin-bottom:4px;">${f}${dateStr}</div>`;
+      const category = getFileCategory(f);
+      if (!filesByCategory[category]) {
+        filesByCategory[category] = [];
+      }
+      filesByCategory[category].push(f);
     });
+    
+    let html = '';
+    
+    // Получаем состояние свернутых категорий
+    const collapsedCategories = getCollapsedCategories();
+    
+    // Сортируем категории (сначала "Без категории", потом остальные по алфавиту)
+    const categories = Object.keys(filesByCategory).sort((a, b) => {
+      if (a === 'Без категории') return -1;
+      if (b === 'Без категории') return 1;
+      return a.localeCompare(b);
+    });
+    
+    categories.forEach(category => {
+      const filesInCategory = filesByCategory[category];
+      const isCollapsed = collapsedCategories.includes(category);
+      const collapseIcon = isCollapsed ? '▶' : '▼';
+      
+      // Заголовок категории с кнопкой сворачивания
+      html += `
+        <div class="category-header" data-category="${category}" style="margin:20px 0 12px 0;padding:8px 12px;background:linear-gradient(90deg,#7c3aed 60%,#a78bfa 100%);color:#fff;border-radius:8px;font-weight:600;font-size:1.1rem;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:background 0.2s;" onmouseover="this.style.background='linear-gradient(90deg,#6d28d9 60%,#9333ea 100%)'" onmouseout="this.style.background='linear-gradient(90deg,#7c3aed 60%,#a78bfa 100%)'">
+          <span>${category} (${filesInCategory.length})</span>
+          <span class="collapse-icon" style="font-size:1.2rem;font-weight:bold;">${collapseIcon}</span>
+        </div>
+        <div class="category-files" data-category="${category}" style="display:${isCollapsed ? 'none' : 'block'};transition:all 0.3s ease;">
+      `;
+      
+      // Файлы в категории
+      filesInCategory.forEach(f => {
+        const dateMatch = f.match(/(\d{2}\.\d{2}\.\d{4})/);
+        const dateStr = dateMatch ? ` (${dateMatch[1]})` : '';
+        
+        // Получаем время создания файла для сортировки
+        const filePath = path.join(saveDir, f);
+        let stat, timeStr = '';
+        try {
+          stat = fs.statSync(filePath);
+          if (stat) {
+            const dt = new Date(stat.mtime);
+            timeStr = dt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
+          }
+        } catch {}
+        
+        html += `<div class="file-modal-link" data-fname="${f}" style="color:#7c3aed;cursor:pointer;text-decoration:underline;margin:6px 0;padding:8px 12px;background:#f8fafc;border-radius:6px;border-left:4px solid #7c3aed;transition:background 0.2s;" onmouseover="this.style.background='#ede9fe'" onmouseout="this.style.background='#f8fafc'">
+          <div style="font-weight:500;">${f}${dateStr}</div>
+          ${timeStr ? `<div style="font-size:0.9rem;color:#666;margin-top:2px;">Создан: ${timeStr}</div>` : ''}
+        </div>`;
+      });
+      
+      html += '</div>';
+    });
+    
     fileModalList.innerHTML = html;
+    
+    // Добавляем обработчики для кнопок сворачивания
+    fileModalList.querySelectorAll('.category-header').forEach(header => {
+      header.onclick = (e) => {
+        const category = header.getAttribute('data-category');
+        const filesContainer = fileModalList.querySelector(`[data-category="${category}"].category-files`);
+        const collapseIcon = header.querySelector('.collapse-icon');
+        
+        if (filesContainer.style.display === 'none') {
+          // Разворачиваем
+          filesContainer.style.display = 'block';
+          collapseIcon.textContent = '▼';
+          toggleCategoryCollapse(category);
+        } else {
+          // Сворачиваем
+          filesContainer.style.display = 'none';
+          collapseIcon.textContent = '▶';
+          toggleCategoryCollapse(category);
+        }
+      };
+    });
+    
+    // Добавляем обработчики для файлов
     fileModalList.querySelectorAll('.file-modal-link').forEach(el => {
       el.onclick = (e) => {
         const fname = el.getAttribute('data-fname');
@@ -299,6 +444,41 @@ window.addEventListener('DOMContentLoaded', () => {
       };
     });
   }
+  
+  // Обработчики для кнопок массового управления категориями
+  document.getElementById('expand-all-categories').onclick = () => {
+    const headers = fileModalList.querySelectorAll('.category-header');
+    const collapsed = [];
+    
+    headers.forEach(header => {
+      const category = header.getAttribute('data-category');
+      const filesContainer = fileModalList.querySelector(`[data-category="${category}"].category-files`);
+      const collapseIcon = header.querySelector('.collapse-icon');
+      
+      filesContainer.style.display = 'block';
+      collapseIcon.textContent = '▼';
+      collapsed.push(category);
+    });
+    
+    saveCollapsedCategories([]);
+  };
+  
+  document.getElementById('collapse-all-categories').onclick = () => {
+    const headers = fileModalList.querySelectorAll('.category-header');
+    const collapsed = [];
+    
+    headers.forEach(header => {
+      const category = header.getAttribute('data-category');
+      const filesContainer = fileModalList.querySelector(`[data-category="${category}"].category-files`);
+      const collapseIcon = header.querySelector('.collapse-icon');
+      
+      filesContainer.style.display = 'none';
+      collapseIcon.textContent = '▶';
+      collapsed.push(category);
+    });
+    
+    saveCollapsedCategories(collapsed);
+  };
   // --- Навигация между страницами ---
   const mainPage = document.getElementById('main-page');
   const comparePage = document.getElementById('compare-page');
@@ -319,55 +499,194 @@ window.addEventListener('DOMContentLoaded', () => {
       mainPage.style.display = 'block';
     };
   }
+
   // Кнопка назад (если нужна)
   // ...
   // --- Сравнение ---
-  async function fillCompareSelects() {
+  let selectedCompareFile1 = null;
+  let selectedCompareFile2 = null;
+
+  // Функция для рендеринга списка файлов с категориями для сравнения
+  async function renderCompareFileList(modalId, listId, selectedFile) {
     const files = await getXlsxFiles();
-    const sel1 = document.getElementById('compare-file-1');
-    const sel2 = document.getElementById('compare-file-2');
-    if (sel1 && sel2) {
-      sel1.innerHTML = '<option value="">Выберите файл...</option>';
-      sel2.innerHTML = '<option value="">Выберите файл...</option>';
-      files.forEach(f => {
-        const filePath = path.join(saveDir, f);
-        let stat, label = f;
+    const categories = getCategories();
+    const collapsedCategories = getCollapsedCategories();
+    
+    // Группируем файлы по категориям
+    const filesByCategory = {};
+    files.forEach(file => {
+      const category = getFileCategory(file) || 'Без категории';
+      if (!filesByCategory[category]) {
+        filesByCategory[category] = [];
+      }
+      filesByCategory[category].push(file);
+    });
+    
+    // Сортируем категории (Без категории первая)
+    const sortedCategories = Object.keys(filesByCategory).sort((a, b) => {
+      if (a === 'Без категории') return -1;
+      if (b === 'Без категории') return 1;
+      return a.localeCompare(b);
+    });
+    
+    const listElement = document.getElementById(listId);
+    if (!listElement) return;
+    
+    let html = '';
+    sortedCategories.forEach(category => {
+      const files = filesByCategory[category];
+      const isCollapsed = collapsedCategories.includes(category);
+      
+      html += `
+        <div class="category-section" style="margin-bottom:16px;">
+          <div class="category-header" style="display:flex;align-items:center;gap:8px;padding:12px 16px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);border-radius:12px;cursor:pointer;font-weight:600;color:#374151;border:1px solid #e2e8f0;transition:all 0.2s;" onclick="toggleCompareCategoryCollapse('${category}', '${modalId}', '${listId}', '${selectedFile}')">
+            <span class="category-toggle" style="font-size:1.1rem;transition:transform 0.3s;${isCollapsed ? 'transform:rotate(-90deg);' : ''}">▶</span>
+            <span style="flex:1;font-size:1rem;">${category}</span>
+            <span style="font-size:0.85rem;color:#6b7280;background:#fff;padding:4px 8px;border-radius:6px;border:1px solid #e5e7eb;">${files.length} файл${files.length === 1 ? '' : files.length < 5 ? 'а' : 'ов'}</span>
+          </div>
+          <div class="category-files" style="display:${isCollapsed ? 'none' : 'block'};margin-top:12px;margin-left:20px;animation:${isCollapsed ? 'none' : 'slideDown 0.3s ease-out'};">
+      `;
+      
+      files.forEach(file => {
+        const filePath = path.join(saveDir, file);
+        let stat, label = file;
         try {
           stat = fs.statSync(filePath);
         } catch {}
         if (stat) {
           const dt = new Date(stat.mtime);
           const dtStr = dt.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' });
-          label = `${f} (${dtStr})`;
+          label = `${file} (${dtStr})`;
         }
-        const opt1 = document.createElement('option');
-        opt1.value = f;
-        opt1.textContent = label;
-        sel1.appendChild(opt1);
-        const opt2 = document.createElement('option');
-        opt2.value = f;
-        opt2.textContent = label;
-        sel2.appendChild(opt2);
+        
+        const isSelected = selectedFile === file;
+        html += `
+          <div class="file-item" style="padding:12px 16px;margin:6px 0;background:${isSelected ? 'linear-gradient(135deg,#7c3aed 0%,#a78bfa 100%)' : '#fff'};color:${isSelected ? '#fff' : '#374151'};border-radius:10px;cursor:pointer;border:2px solid ${isSelected ? '#7c3aed' : '#e5e7eb'};transition:all 0.3s;box-shadow:${isSelected ? '0 4px 12px rgba(124,58,237,0.3)' : '0 2px 8px rgba(0,0,0,0.05)'};" onclick="selectCompareFile('${modalId}', '${file}')" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='${isSelected ? '0 6px 16px rgba(124,58,237,0.4)' : '0 4px 12px rgba(0,0,0,0.1)'}'" onmouseout="this.style.transform='translateY(0)';this.style.boxShadow='${isSelected ? '0 4px 12px rgba(124,58,237,0.3)' : '0 2px 8px rgba(0,0,0,0.05)'}'">
+            <div style="font-weight:${isSelected ? '700' : '600'};font-size:0.95rem;margin-bottom:4px;">${label}</div>
+            ${isSelected ? '<div style="font-size:0.85rem;opacity:0.9;display:flex;align-items:center;gap:6px;"><span style="font-size:1.1rem;">✓</span> Выбрано</div>' : ''}
+          </div>
+        `;
       });
-    }
+      
+      html += `
+          </div>
+        </div>
+      `;
+    });
+    
+    listElement.innerHTML = html;
   }
+
+  // Функция для сворачивания/разворачивания категорий в сравнении
+  window.toggleCompareCategoryCollapse = function(category, modalId, listId, selectedFile) {
+    const collapsedCategories = getCollapsedCategories();
+    const newCollapsed = collapsedCategories.includes(category) 
+      ? collapsedCategories.filter(c => c !== category)
+      : [...collapsedCategories, category];
+    
+    saveCollapsedCategories(newCollapsed);
+    renderCompareFileList(modalId, listId, selectedFile);
+  };
+
+  // Функция выбора файла для сравнения (глобальная)
+  window.selectCompareFile = function(modalId, filename) {
+    if (modalId === 'compare-file-modal-1') {
+      selectedCompareFile1 = filename;
+      document.getElementById('select-compare-file-1').textContent = `Первый файл: ${filename}`;
+      document.getElementById('compare-file-modal-1').style.display = 'none';
+    } else if (modalId === 'compare-file-modal-2') {
+      selectedCompareFile2 = filename;
+      document.getElementById('select-compare-file-2').textContent = `Второй файл: ${filename}`;
+      document.getElementById('compare-file-modal-2').style.display = 'none';
+    }
+  };
+  // Обработчики для кнопок выбора файлов сравнения
+  const selectCompareFile1Btn = document.getElementById('select-compare-file-1');
+  const selectCompareFile2Btn = document.getElementById('select-compare-file-2');
+  
+  if (selectCompareFile1Btn) {
+    selectCompareFile1Btn.onclick = async () => {
+      await renderCompareFileList('compare-file-modal-1', 'compare-file-list-1', selectedCompareFile1);
+      document.getElementById('compare-file-modal-1').style.display = 'flex';
+    };
+  }
+  
+  if (selectCompareFile2Btn) {
+    selectCompareFile2Btn.onclick = async () => {
+      await renderCompareFileList('compare-file-modal-2', 'compare-file-list-2', selectedCompareFile2);
+      document.getElementById('compare-file-modal-2').style.display = 'flex';
+    };
+  }
+
+  // Обработчики закрытия модальных окон сравнения
+  const closeCompareModal1Btn = document.getElementById('close-compare-file-modal-1');
+  const closeCompareModal2Btn = document.getElementById('close-compare-file-modal-2');
+  
+  if (closeCompareModal1Btn) {
+    closeCompareModal1Btn.onclick = () => {
+      document.getElementById('compare-file-modal-1').style.display = 'none';
+    };
+  }
+  
+  if (closeCompareModal2Btn) {
+    closeCompareModal2Btn.onclick = () => {
+      document.getElementById('compare-file-modal-2').style.display = 'none';
+    };
+  }
+
+  // Обработчики разворачивания/сворачивания категорий для сравнения
+  const expandAllCompare1Btn = document.getElementById('expand-all-compare-1');
+  const collapseAllCompare1Btn = document.getElementById('collapse-all-compare-1');
+  const expandAllCompare2Btn = document.getElementById('expand-all-compare-2');
+  const collapseAllCompare2Btn = document.getElementById('collapse-all-compare-2');
+  
+  if (expandAllCompare1Btn) {
+    expandAllCompare1Btn.onclick = async () => {
+      saveCollapsedCategories([]);
+      await renderCompareFileList('compare-file-modal-1', 'compare-file-list-1', selectedCompareFile1);
+    };
+  }
+  
+  if (collapseAllCompare1Btn) {
+    collapseAllCompare1Btn.onclick = async () => {
+      const categories = getCategories();
+      const allCategories = ['Без категории', ...categories];
+      saveCollapsedCategories(allCategories);
+      await renderCompareFileList('compare-file-modal-1', 'compare-file-list-1', selectedCompareFile1);
+    };
+  }
+  
+  if (expandAllCompare2Btn) {
+    expandAllCompare2Btn.onclick = async () => {
+      saveCollapsedCategories([]);
+      await renderCompareFileList('compare-file-modal-2', 'compare-file-list-2', selectedCompareFile2);
+    };
+  }
+  
+  if (collapseAllCompare2Btn) {
+    collapseAllCompare2Btn.onclick = async () => {
+      const categories = getCategories();
+      const allCategories = ['Без категории', ...categories];
+      saveCollapsedCategories(allCategories);
+      await renderCompareFileList('compare-file-modal-2', 'compare-file-list-2', selectedCompareFile2);
+    };
+  }
+
   const runCompareBtn = document.getElementById('run-compare-btn');
   if (runCompareBtn) {
     runCompareBtn.onclick = async () => {
-      const f1 = document.getElementById('compare-file-1').value;
-      const f2 = document.getElementById('compare-file-2').value;
       const resultBlock = document.getElementById('compare-result-block');
-      if (!f1 || !f2 || f1 === f2) {
+      if (!selectedCompareFile1 || !selectedCompareFile2 || selectedCompareFile1 === selectedCompareFile2) {
         resultBlock.innerHTML = '<div style="color:#d32f2f;text-align:center;font-size:1.1rem;">Выберите два разных файла для сравнения</div>';
         return;
       }
       resultBlock.innerHTML = '<div class="preview-placeholder">Загрузка...</div>';
       try {
-        const [data1, data2] = [readXlsxFile(f1), readXlsxFile(f2)];
+        const [data1, data2] = [readXlsxFile(selectedCompareFile1), readXlsxFile(selectedCompareFile2)];
         const stats1 = analyzeTable(data1);
         const stats2 = analyzeTable(data2);
         const diff = compareStats(stats1, stats2);
-        resultBlock.innerHTML = renderCompareStats(stats1, stats2, diff, f1, f2);
+        resultBlock.innerHTML = renderCompareStats(stats1, stats2, diff, selectedCompareFile1, selectedCompareFile2);
       } catch (e) {
         resultBlock.innerHTML = '<div style="color:#d32f2f;text-align:center;font-size:1.1rem;">Ошибка анализа: ' + e + '</div>';
       }
@@ -378,19 +697,17 @@ window.addEventListener('DOMContentLoaded', () => {
   const downloadBtn = document.getElementById('download-compare-table-btn');
   if (generateBtn && downloadBtn) {
     generateBtn.onclick = async () => {
-      const f1 = document.getElementById('compare-file-1').value;
-      const f2 = document.getElementById('compare-file-2').value;
-      if (!f1 || !f2 || f1 === f2) {
+      if (!selectedCompareFile1 || !selectedCompareFile2 || selectedCompareFile1 === selectedCompareFile2) {
         alert('Выберите два разных файла для сравнения!');
         return;
       }
       try {
-        const [data1, data2] = [readXlsxFile(f1), readXlsxFile(f2)];
+        const [data1, data2] = [readXlsxFile(selectedCompareFile1), readXlsxFile(selectedCompareFile2)];
         const stats1 = analyzeTable(data1);
         const stats2 = analyzeTable(data2);
         const diff = compareStats(stats1, stats2);
         // Формируем данные для экспорта
-        compareTableData = buildCompareTableForExport(stats1, stats2, diff, f1, f2);
+        compareTableData = buildCompareTableForExport(stats1, stats2, diff, selectedCompareFile1, selectedCompareFile2);
         downloadBtn.disabled = false;
         alert('Таблица сравнения сформирована! Теперь можно скачать файл.');
       } catch (e) {
@@ -419,6 +736,8 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     };
   }
+
+
 
 
 });
@@ -616,9 +935,12 @@ function getXlsxFiles() {
 
 function renderPreviewTable() {
   const summaryBtn = document.getElementById('toggle-summary');
+  const sortingPanel = document.getElementById('sorting-panel');
+  
   if (!previewData.length) {
     previewTable.innerHTML = '<div class="preview-placeholder">Выберите таблицу</div>';
     if (summaryBtn) summaryBtn.disabled = true;
+    if (sortingPanel) sortingPanel.style.display = 'none';
     return;
   }
   if (summaryBtn) summaryBtn.disabled = false;
@@ -632,18 +954,6 @@ function renderPreviewTable() {
   previewHeaders.forEach((cell, j) => {
     let th = document.createElement('th');
     th.textContent = cell;
-    if ([
-      'Цена',
-      'Рейтинг', 
-      'Кол-во отзывов',
-      'Объём продаж в мес'
-    ].includes(cell)) {
-      th.className = 'sortable';
-      th.setAttribute('data-col', j);
-      if (sortState.col === j) {
-        th.innerHTML += sortState.dir === 1 ? ' <span style="font-size:14px">▲</span>' : ' <span style="font-size:14px">▼</span>';
-      }
-    }
     trHead.appendChild(th);
   });
   table.appendChild(trHead);
@@ -726,18 +1036,51 @@ function renderPreviewTable() {
       previewTable.innerHTML = '';
       previewTable.appendChild(frag);
       
-      // Дебаунсинг для обработчиков сортировки
-      let sortTimeout;
-      document.querySelectorAll('.sortable').forEach(th => {
-        th.onclick = () => {
-          clearTimeout(sortTimeout);
-          sortTimeout = setTimeout(() => {
-            const col = Number(th.getAttribute('data-col'));
-            if (sortState.col === col) sortState.dir *= -1;
-            else { sortState.col = col; sortState.dir = 1; }
-            sortPreviewData(col, sortState.dir);
-            renderPreviewTable();
-          }, 100);
+      // Показываем панель сортировки
+      const sortingPanel = document.getElementById('sorting-panel');
+      if (sortingPanel) {
+        sortingPanel.style.display = 'block';
+      }
+      
+      // Добавляем обработчики для кнопок сортировки
+      document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.onclick = () => {
+          const sortType = btn.getAttribute('data-sort');
+          
+          // Убираем выделение со всех кнопок
+          document.querySelectorAll('.sort-btn').forEach(b => {
+            b.style.background = '#fff';
+            b.style.borderColor = '#d1d5db';
+            b.style.color = '#374151';
+          });
+          
+          if (sortType === 'clear') {
+            // Сброс сортировки
+            sortState = { col: null, dir: 1 };
+            btn.style.background = '#f3f4f6';
+            btn.style.borderColor = '#d1d5db';
+            btn.style.color = '#6b7280';
+          } else {
+            // Применяем сортировку
+            btn.style.background = '#7c3aed';
+            btn.style.borderColor = '#7c3aed';
+            btn.style.color = '#fff';
+            
+            // Определяем колонку и направление
+            let col, dir;
+            if (sortType === 'price-asc') { col = previewHeaders.indexOf('Цена'); dir = 1; }
+            else if (sortType === 'price-desc') { col = previewHeaders.indexOf('Цена'); dir = -1; }
+            else if (sortType === 'rating-asc') { col = previewHeaders.indexOf('Рейтинг'); dir = 1; }
+            else if (sortType === 'rating-desc') { col = previewHeaders.indexOf('Рейтинг'); dir = -1; }
+            else if (sortType === 'reviews-asc') { col = previewHeaders.indexOf('Кол-во отзывов'); dir = 1; }
+            else if (sortType === 'reviews-desc') { col = previewHeaders.indexOf('Кол-во отзывов'); dir = -1; }
+            
+            if (col !== -1) {
+              sortState = { col, dir };
+              sortPreviewData(col, dir);
+              renderPreviewTable();
+            }
+          }
         };
       });
       
@@ -878,17 +1221,186 @@ let parseTimerInterval = null;
 
 searchBtn.onclick = async () => {
   const query = searchInput.value.trim();
+  if (!query) {
+    alert('Введите поисковый запрос');
+    return;
+  }
+  
+  // Сохраняем запрос и показываем модальное окно категорий
+  pendingSearchQuery = query;
+  showCategoryModal();
+};
+
+// Функция для показа модального окна категорий
+function showCategoryModal() {
+  const categoryModal = document.getElementById('category-modal');
+  const existingCategories = document.getElementById('existing-categories');
+  const newCategoryInput = document.getElementById('new-category-input');
+  
+  // Загружаем существующие категории
+  const categories = getCategories();
+  existingCategories.innerHTML = '';
+  
+  if (categories.length === 0) {
+    existingCategories.innerHTML = '<div style="color:#666;font-style:italic;padding:8px;">Нет созданных категорий</div>';
+  } else {
+    categories.forEach(category => {
+      const categoryBtn = document.createElement('button');
+      categoryBtn.textContent = category;
+      categoryBtn.setAttribute('data-category', category);
+      categoryBtn.style.cssText = `
+        display:block;width:100%;padding:10px 16px;margin:4px 0;text-align:left;
+        background:#fff;border:2px solid #ddd;border-radius:8px;cursor:pointer;
+        font-size:1rem;transition:all 0.2s;position:relative;
+      `;
+      
+      // Добавляем иконку выбора
+      const checkIcon = document.createElement('span');
+      checkIcon.innerHTML = '✓';
+      checkIcon.style.cssText = `
+        position:absolute;right:12px;top:50%;transform:translateY(-50%);
+        color:#7c3aed;font-weight:bold;font-size:1.2rem;opacity:0;
+        transition:opacity 0.2s;
+      `;
+      categoryBtn.appendChild(checkIcon);
+      
+      categoryBtn.onmouseover = () => {
+        if (selectedCategory !== category) {
+          categoryBtn.style.borderColor = '#7c3aed';
+          categoryBtn.style.background = '#f3f4f6';
+        }
+      };
+      categoryBtn.onmouseout = () => {
+        if (selectedCategory !== category) {
+          categoryBtn.style.borderColor = '#ddd';
+          categoryBtn.style.background = '#fff';
+        }
+      };
+      categoryBtn.onclick = () => {
+        // Убираем выделение с других кнопок
+        existingCategories.querySelectorAll('button').forEach(btn => {
+          btn.style.borderColor = '#ddd';
+          btn.style.background = '#fff';
+          btn.querySelector('span').style.opacity = '0';
+        });
+        // Выделяем выбранную
+        categoryBtn.style.borderColor = '#7c3aed';
+        categoryBtn.style.background = '#ede9fe';
+        categoryBtn.style.boxShadow = '0 2px 8px rgba(124, 58, 237, 0.2)';
+        checkIcon.style.opacity = '1';
+        selectedCategory = category;
+        
+        // Обновляем текст кнопки подтверждения
+        const confirmBtn = document.getElementById('confirm-category-btn');
+        if (confirmBtn) {
+          confirmBtn.textContent = `Продолжить парсинг в категорию "${category}"`;
+        }
+      };
+      existingCategories.appendChild(categoryBtn);
+    });
+  }
+  
+  // Очищаем поле новой категории
+  newCategoryInput.value = '';
+  selectedCategory = null;
+  
+  // Сбрасываем текст кнопки подтверждения
+  const confirmBtn = document.getElementById('confirm-category-btn');
+  if (confirmBtn) {
+    confirmBtn.textContent = 'Продолжить парсинг';
+  }
+  
+  categoryModal.style.display = 'flex';
+}
+
+// Обработчики модального окна категорий
+document.getElementById('create-category-btn').onclick = () => {
+  const newCategoryInput = document.getElementById('new-category-input');
+  const categoryName = newCategoryInput.value.trim();
+  
+  if (!categoryName) {
+    alert('Введите название категории');
+    return;
+  }
+  
+  const categories = addCategory(categoryName);
+  selectedCategory = categoryName;
+  
+  // Обновляем список категорий и выделяем созданную категорию
+  showCategoryModal();
+  
+  // Находим и выделяем созданную категорию
+  setTimeout(() => {
+    const createdCategoryBtn = document.querySelector(`[data-category="${categoryName}"]`);
+    if (createdCategoryBtn) {
+      // Убираем выделение с других кнопок
+      document.querySelectorAll('#existing-categories button').forEach(btn => {
+        btn.style.borderColor = '#ddd';
+        btn.style.background = '#fff';
+        btn.querySelector('span').style.opacity = '0';
+      });
+      
+      // Выделяем созданную категорию
+      createdCategoryBtn.style.borderColor = '#7c3aed';
+      createdCategoryBtn.style.background = '#ede9fe';
+      createdCategoryBtn.style.boxShadow = '0 2px 8px rgba(124, 58, 237, 0.2)';
+      createdCategoryBtn.querySelector('span').style.opacity = '1';
+      
+      // Обновляем текст кнопки подтверждения
+      const confirmBtn = document.getElementById('confirm-category-btn');
+      if (confirmBtn) {
+        confirmBtn.textContent = `Продолжить парсинг в категорию "${categoryName}"`;
+      }
+    }
+  }, 100);
+};
+
+document.getElementById('confirm-category-btn').onclick = async () => {
+  if (!selectedCategory) {
+    alert('Выберите или создайте категорию');
+    return;
+  }
+  
+  if (!pendingSearchQuery) {
+    alert('Ошибка: поисковый запрос не найден');
+    return;
+  }
+  
+  // Закрываем модальное окно
+  document.getElementById('category-modal').style.display = 'none';
+  
+  // Запускаем парсинг с выбранной категорией
+  await startParsing(pendingSearchQuery, selectedCategory);
+};
+
+document.getElementById('cancel-category-btn').onclick = () => {
+  document.getElementById('category-modal').style.display = 'none';
+  pendingSearchQuery = null;
+  selectedCategory = null;
+};
+
+document.getElementById('close-category-modal').onclick = () => {
+  document.getElementById('category-modal').style.display = 'none';
+  pendingSearchQuery = null;
+  selectedCategory = null;
+};
+
+// Функция запуска парсинга
+async function startParsing(query, category) {
   searchBtn.disabled = true;
   searchInput.disabled = true;
   loadingOverlay.style.display = 'flex';
+  
   // Динамический таймер ожидания
   const loadingText = document.querySelector('.loading-text');
-  let avgTime = Number(localStorage.getItem('avgParseTime')) || 20; // по умолчанию 20 сек
+  let avgTime = Number(localStorage.getItem('avgParseTime')) || 20;
   let timeLeft = avgTime;
   parseStartTime = Date.now();
+  
   if (loadingText) {
     loadingText.textContent = `Осталось примерно ${Math.ceil(timeLeft)} сек.`;
   }
+  
   if (parseTimerInterval) clearInterval(parseTimerInterval);
   parseTimerInterval = setInterval(() => {
     timeLeft = avgTime - Math.round((Date.now() - parseStartTime) / 1000);
@@ -898,25 +1410,32 @@ searchBtn.onclick = async () => {
       loadingText.textContent = `Формируем таблицу`;
     }
   }, 1000);
+  
   try {
-    await ipcRenderer.invoke('run-parser', query, saveDir);
+    // Передаем категорию в main процесс
+    await ipcRenderer.invoke('run-parser', query, saveDir, category);
+    
     if (parseTimerInterval) clearInterval(parseTimerInterval);
     if (loadingText) loadingText.textContent = 'Формируем таблицу...';
-    await updateFileList(); // Дожидаемся полной генерации таблицы
+    
+    await updateFileList();
   } catch (e) {
     alert('Ошибка парсинга: ' + e);
   }
+  
   searchBtn.disabled = false;
   searchInput.disabled = false;
   searchBtn.textContent = 'Искать';
+  
   // Сохраняем новое среднее время
   const elapsed = Math.round((Date.now() - parseStartTime) / 1000);
   let prev = Number(localStorage.getItem('avgParseTime')) || 20;
   let newAvg = Math.round((prev * 2 + elapsed) / 3);
   localStorage.setItem('avgParseTime', newAvg);
+  
   // Скрываем overlay только после генерации таблицы
   loadingOverlay.style.display = 'none';
-};
+}
 
 // При старте приложения тоже делаем кнопку неактивной
 window.onload = () => {
@@ -928,31 +1447,81 @@ window.onload = () => {
 
 function calculateSummary(products) {
   if (!products || !products.length) return {};
+  
   const prices = products.map(p => p.price).filter(Boolean).sort((a, b) => a - b);
   const ratings = products.map(p => p.rating).filter(Boolean);
+  const reviews = products.map(p => p.reviews).filter(Boolean);
+  
   // Группируем по магазину
   const shops = {};
   products.forEach(p => {
     const shop = p.shop || p['shop'] || p['Магазин'] || '';
     if (!shop) return;
-    if (!shops[shop]) shops[shop] = { sumRating: 0, count: 0 };
+    if (!shops[shop]) shops[shop] = { sumRating: 0, count: 0, sumReviews: 0, sumPrice: 0 };
     shops[shop].sumRating += Number(p.rating) || 0;
+    shops[shop].sumReviews += Number(p.reviews) || 0;
+    shops[shop].sumPrice += Number(p.price) || 0;
     shops[shop].count++;
   });
-  let topShop = '-';
-  if (Object.keys(shops).length) {
-    // Сначала ищем по суммарному рейтингу, если у всех рейтинг 0 — по количеству товаров
-    const sorted = Object.entries(shops).sort((a, b) => {
-      if (b[1].sumRating !== a[1].sumRating) return b[1].sumRating - a[1].sumRating;
-      return b[1].count - a[1].count;
-    });
-    topShop = sorted[0][0];
-  }
-  const avgPrice = prices.reduce((a, b) => a + b, 0) / prices.length;
+  
+  // Топ магазины
+  const topShops = Object.entries(shops)
+    .map(([name, data]) => ({
+      name,
+      count: data.count,
+      avgRating: data.count ? data.sumRating / data.count : 0,
+      avgReviews: data.count ? data.sumReviews / data.count : 0,
+      avgPrice: data.count ? data.sumPrice / data.count : 0
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+  
+  // Группируем по брендам
+  const brands = {};
+  products.forEach(p => {
+    const brand = p.brand || p['Бренд'] || '';
+    if (!brand) return;
+    if (!brands[brand]) brands[brand] = { count: 0, sumRating: 0, sumReviews: 0, sumPrice: 0 };
+    brands[brand].count++;
+    brands[brand].sumRating += Number(p.rating) || 0;
+    brands[brand].sumReviews += Number(p.reviews) || 0;
+    brands[brand].sumPrice += Number(p.price) || 0;
+  });
+  
+  const topBrands = Object.entries(brands)
+    .map(([name, data]) => ({
+      name,
+      count: data.count,
+      avgRating: data.count ? data.sumRating / data.count : 0,
+      avgReviews: data.count ? data.sumReviews / data.count : 0,
+      avgPrice: data.count ? data.sumPrice / data.count : 0
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+  
+  // Ценовые диапазоны
+  const priceRanges = {
+    budget: prices.filter(p => p <= 1000).length,
+    medium: prices.filter(p => p > 1000 && p <= 3000).length,
+    premium: prices.filter(p => p > 3000 && p <= 10000).length,
+    luxury: prices.filter(p => p > 10000).length
+  };
+  
+  // Рейтинговые диапазоны
+  const ratingRanges = {
+    low: ratings.filter(r => r < 4.0).length,
+    good: ratings.filter(r => r >= 4.0 && r < 4.5).length,
+    high: ratings.filter(r => r >= 4.5 && r < 4.8).length,
+    excellent: ratings.filter(r => r >= 4.8).length
+  };
+  
+  const avgPrice = prices.length ? prices.reduce((a, b) => a + b, 0) / prices.length : 0;
   const medianPrice = prices.length % 2 === 0 ?
     (prices[prices.length/2-1] + prices[prices.length/2]) / 2 :
     prices[Math.floor(prices.length/2)];
   const avgRating = ratings.length ? (ratings.reduce((a, b) => a + b, 0) / ratings.length) : 0;
+  const avgReviews = reviews.length ? (reviews.reduce((a, b) => a + b, 0) / reviews.length) : 0;
+  
   // Топ-5 товаров по количеству отзывов и рейтингу
   const topProducts = products
     .filter(p => p.name && p.reviews)
@@ -961,7 +1530,8 @@ function calculateSummary(products) {
       return b.rating - a.rating;
     })
     .slice(0, 5);
-  // Топ-5 наименований (по количеству товаров, отзывам, рейтингу)
+  
+  // Топ-5 наименований
   const nameGroups = {};
   products.forEach(p => {
     if (!p.name) return;
@@ -971,9 +1541,10 @@ function calculateSummary(products) {
     nameGroups[key].sumReviews += p.reviews || 0;
     nameGroups[key].sumRating += p.rating || 0;
   });
+  
   const topNames = Object.entries(nameGroups)
     .map(([name, v]) => ({
-      name,
+      name: name.charAt(0).toUpperCase() + name.slice(1),
       count: v.count,
       sumReviews: v.sumReviews,
       avgRating: v.count ? v.sumRating / v.count : 0
@@ -984,6 +1555,7 @@ function calculateSummary(products) {
       return b.avgRating - a.avgRating;
     })
     .slice(0, 5);
+  
   return {
     count: products.length,
     avgPrice,
@@ -991,9 +1563,14 @@ function calculateSummary(products) {
     minPrice: prices[0],
     maxPrice: prices[prices.length-1],
     avgRating,
-    minRating: Math.min(...ratings),
-    maxRating: Math.max(...ratings),
-    topShop,
+    minRating: ratings.length ? Math.min(...ratings) : 0,
+    maxRating: ratings.length ? Math.max(...ratings) : 0,
+    avgReviews,
+    totalReviews: reviews.reduce((a, b) => a + b, 0),
+    topShops,
+    topBrands,
+    priceRanges,
+    ratingRanges,
     topProducts,
     topNames
   };
@@ -1002,42 +1579,122 @@ function calculateSummary(products) {
 function renderSummary(summary) {
   const el = document.getElementById('summary');
   if (!el) return;
-  el.innerHTML = `
-    <div class="summary-stats">
-      <div class="summary-item"><span class="summary-icon">📦</span><span class="summary-value">${summary.count || 0}</span><span class="summary-label">Товаров найдено</span></div>
-      <div class="summary-item"><span class="summary-icon">💰</span><span class="summary-value">${summary.avgPrice ? summary.avgPrice.toLocaleString('ru-RU', {maximumFractionDigits:0}) : '-'}</span><span class="summary-label">Средняя цена</span></div>
-      <div class="summary-item"><span class="summary-icon">📊</span><span class="summary-value">${summary.medianPrice ? summary.medianPrice.toLocaleString('ru-RU', {maximumFractionDigits:0}) : '-'}</span><span class="summary-label">Медиана цены</span></div>
-      <div class="summary-item"><span class="summary-icon">⬇️</span><span class="summary-value">${summary.minPrice ? summary.minPrice.toLocaleString('ru-RU', {maximumFractionDigits:0}) : '-'}</span><span class="summary-label">Мин. цена</span></div>
-      <div class="summary-item"><span class="summary-icon">⬆️</span><span class="summary-value">${summary.maxPrice ? summary.maxPrice.toLocaleString('ru-RU', {maximumFractionDigits:0}) : '-'}</span><span class="summary-label">Макс. цена</span></div>
-      <div class="summary-item"><span class="summary-icon">⭐</span><span class="summary-value">${summary.avgRating ? summary.avgRating.toFixed(2) : '-'}</span><span class="summary-label">Средний рейтинг</span></div>
-      <div class="summary-item"><span class="summary-icon">🏪</span><span class="summary-value">${summary.topShop || '-'}</span><span class="summary-label">Топ магазин</span></div>
-    </div>
-    <div class="summary-top-blocks">
-      <div class="summary-top-list">
-        <span class="summary-label" style="font-weight:600;font-size:1rem;">Топ 5 самых продаваемых товаров</span>
-        <ol style="margin-top:6px;">
-          ${summary.topProducts && summary.topProducts.length ? summary.topProducts.map((p, i) => `
-            <li>
-              <span style="font-weight:600;">${p.name ? p.name : '-'}</span>
-              <span style="color:#2d72d9;">${p.price ? ' · ' + p.price.toLocaleString('ru-RU') + '₽' : ''}</span>
-              <span style="color:#f5b50a;">${p.rating ? ' · ' + p.rating.toFixed(2) + '★' : ''}</span>
-              <span style="color:#888;">${p.reviews ? ' · ' + p.reviews + ' отзывов' : ''}</span>
-            </li>
-          `).join('') : '<li style="color:#888">Нет данных</li>'}
-        </ol>
+  
+  // Функция для создания компактного прогресс-бара
+  const createCompactProgressBar = (value, max, color) => {
+    const percentage = max > 0 ? (value / max) * 100 : 0;
+    return `
+      <div style="display:flex;align-items:center;gap:4px;margin:2px 0;">
+        <div style="flex:1;height:6px;background:#e5e7eb;border-radius:3px;overflow:hidden;">
+          <div style="width:${percentage}%;height:100%;background:${color};border-radius:3px;"></div>
+        </div>
+        <span style="font-size:0.7rem;color:#6b7280;min-width:30px;text-align:right;">${value}</span>
       </div>
-      <div class="summary-top-list">
-        <span class="summary-label" style="font-weight:600;font-size:1rem;">Топ 5 самых популярных наименований</span>
-        <ol style="margin-top:6px;">
-          ${summary.topNames && summary.topNames.length ? summary.topNames.map((n, i) => `
-            <li>
-              <span style="font-weight:600;">${n.name}</span>
-              <span style="color:#2d72d9;"> · ${n.count} товаров</span>
-              <span style="color:#f5b50a;">${n.avgRating ? ' · ' + n.avgRating.toFixed(2) + '★' : ''}</span>
-              <span style="color:#888;">${n.sumReviews ? ' · ' + n.sumReviews + ' отзывов' : ''}</span>
-            </li>
-          `).join('') : '<li style="color:#888">Нет данных</li>'}
-        </ol>
+    `;
+  };
+  
+  el.innerHTML = `
+    <div style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);border-radius:12px;padding:16px;box-shadow:0 2px 12px rgba(0,0,0,0.06);max-height:calc(100vh - 200px);overflow-y:auto;">
+      <!-- Основная статистика -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px;">
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:2px;">📦</div>
+          <div style="font-size:1.2rem;font-weight:700;color:#1f2937;margin-bottom:2px;">${summary.count || 0}</div>
+          <div style="font-size:0.75rem;color:#6b7280;">Товаров</div>
+        </div>
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:2px;">💰</div>
+          <div style="font-size:1.2rem;font-weight:700;color:#1f2937;margin-bottom:2px;">${summary.avgPrice ? summary.avgPrice.toLocaleString('ru-RU', {maximumFractionDigits:0}) : '-'}</div>
+          <div style="font-size:0.75rem;color:#6b7280;">Ср. цена</div>
+        </div>
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:2px;">⭐</div>
+          <div style="font-size:1.2rem;font-weight:700;color:#1f2937;margin-bottom:2px;">${summary.avgRating ? summary.avgRating.toFixed(2) : '-'}</div>
+          <div style="font-size:0.75rem;color:#6b7280;">Рейтинг</div>
+        </div>
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:1.5rem;margin-bottom:2px;">💬</div>
+          <div style="font-size:1.2rem;font-weight:700;color:#1f2937;margin-bottom:2px;">${summary.totalReviews ? (summary.totalReviews/1000).toFixed(1) + 'k' : '-'}</div>
+          <div style="font-size:0.75rem;color:#6b7280;">Отзывов</div>
+        </div>
+      </div>
+      
+      <!-- Компактные диапазоны -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">
+          <h4 style="margin:0 0 8px 0;font-size:0.9rem;color:#1f2937;">📊 Цены</h4>
+          <div style="font-size:0.75rem;">
+            <div style="color:#059669;margin-bottom:4px;">Бюджет (≤1k): ${summary.priceRanges.budget}</div>
+            <div style="color:#2563eb;margin-bottom:4px;">Средние (1-3k): ${summary.priceRanges.medium}</div>
+            <div style="color:#7c3aed;margin-bottom:4px;">Премиум (3-10k): ${summary.priceRanges.premium}</div>
+            <div style="color:#dc2626;">Люкс (>10k): ${summary.priceRanges.luxury}</div>
+          </div>
+        </div>
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">
+          <h4 style="margin:0 0 8px 0;font-size:0.9rem;color:#1f2937;">⭐ Рейтинг</h4>
+          <div style="font-size:0.75rem;">
+            <div style="color:#dc2626;margin-bottom:4px;">Низкий (<4.0): ${summary.ratingRanges.low}</div>
+            <div style="color:#f59e0b;margin-bottom:4px;">Хороший (4.0-4.5): ${summary.ratingRanges.good}</div>
+            <div style="color:#10b981;margin-bottom:4px;">Высокий (4.5-4.8): ${summary.ratingRanges.high}</div>
+            <div style="color:#059669;">Отличный (≥4.8): ${summary.ratingRanges.excellent}</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Топ магазины и бренды -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">
+          <h4 style="margin:0 0 8px 0;font-size:0.9rem;color:#1f2937;">🏪 Топ магазины</h4>
+          <div style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;">
+            ${summary.topShops && summary.topShops.length ? summary.topShops.map((shop, i) => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#f9fafb;border-radius:4px;font-size:0.75rem;">
+                <div style="max-width:60%;">
+                  <div style="font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${shop.name}</div>
+                  <div style="color:#6b7280;">${shop.count} т.</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-weight:600;color:#f59e0b;">${shop.avgRating.toFixed(1)}⭐</div>
+                  <div style="color:#6b7280;">${shop.avgPrice.toLocaleString('ru-RU')}₽</div>
+                </div>
+              </div>
+            `).join('') : '<div style="color:#6b7280;text-align:center;font-size:0.75rem;">Нет данных</div>'}
+          </div>
+        </div>
+        
+        <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">
+          <h4 style="margin:0 0 8px 0;font-size:0.9rem;color:#1f2937;">🏷️ Топ бренды</h4>
+          <div style="display:flex;flex-direction:column;gap:4px;max-height:120px;overflow-y:auto;">
+            ${summary.topBrands && summary.topBrands.length ? summary.topBrands.map((brand, i) => `
+              <div style="display:flex;justify-content:space-between;align-items:center;padding:4px 8px;background:#f9fafb;border-radius:4px;font-size:0.75rem;">
+                <div style="max-width:60%;">
+                  <div style="font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${brand.name}</div>
+                  <div style="color:#6b7280;">${brand.count} т.</div>
+                </div>
+                <div style="text-align:right;">
+                  <div style="font-weight:600;color:#f59e0b;">${brand.avgRating.toFixed(1)}⭐</div>
+                  <div style="color:#6b7280;">${brand.avgPrice.toLocaleString('ru-RU')}₽</div>
+                </div>
+              </div>
+            `).join('') : '<div style="color:#6b7280;text-align:center;font-size:0.75rem;">Нет данных</div>'}
+          </div>
+        </div>
+      </div>
+      
+      <!-- Топ товары -->
+      <div style="background:#fff;padding:12px;border-radius:8px;border:1px solid #e5e7eb;">
+        <h4 style="margin:0 0 8px 0;font-size:0.9rem;color:#1f2937;">🔥 Топ товары по отзывам</h4>
+        <div style="display:flex;flex-direction:column;gap:4px;max-height:100px;overflow-y:auto;">
+          ${summary.topProducts && summary.topProducts.length ? summary.topProducts.map((product, i) => `
+            <div style="padding:6px 8px;background:#f9fafb;border-radius:4px;border-left:3px solid #3b82f6;font-size:0.75rem;">
+              <div style="font-weight:600;color:#1f2937;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:2px;">${product.name || 'Без названия'}</div>
+              <div style="display:flex;gap:8px;color:#6b7280;">
+                <span style="color:#2563eb;font-weight:600;">${product.price ? product.price.toLocaleString('ru-RU') + '₽' : '-'}</span>
+                <span style="color:#f59e0b;font-weight:600;">${product.rating ? product.rating.toFixed(1) + '⭐' : '-'}</span>
+                <span>${product.reviews ? product.reviews.toLocaleString('ru-RU') + ' отз.' : '-'}</span>
+              </div>
+            </div>
+          `).join('') : '<div style="color:#6b7280;text-align:center;font-size:0.75rem;">Нет данных</div>'}
+        </div>
       </div>
     </div>
   `;
@@ -1070,10 +1727,6 @@ function analyzeTable(rows) {
   const priceKey = rows[0] && ('Цена (текущая)' in rows[0]) ? 'Цена (текущая)' :
                    ('Цена' in rows[0]) ? 'Цена' :
                    Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('цен')) || '';
-  const oldPriceKey = rows[0] && ('Старая цена (зачеркнутая)' in rows[0]) ? 'Старая цена (зачеркнутая)' :
-                      Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('стар') || k.toLowerCase().includes('зачерк')) || '';
-  const walletPriceKey = rows[0] && ('Цена по WB-кошельку' in rows[0]) ? 'Цена по WB-кошельку' :
-                         Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('кошел')) || '';
   const reviewsKey = rows[0] && ('Кол-во отзывов' in rows[0]) ? 'Кол-во отзывов' :
                      Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('отзыв')) || '';
   const ratingKey = rows[0] && ('Рейтинг' in rows[0]) ? 'Рейтинг' :
@@ -1084,15 +1737,16 @@ function analyzeTable(rows) {
                   Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('магазин')) || '';
   const artikulKey = rows[0] && ('Артикул WB' in rows[0]) ? 'Артикул WB' :
                      Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('артикул')) || '';
+  const supplierIdKey = rows[0] && ('ID поставщика' in rows[0]) ? 'ID поставщика' :
+                        Object.keys(rows[0] || {}).find(k => k.toLowerCase().includes('поставщик')) || '';
 
   const prices = priceKey ? rows.map(r => Number(r[priceKey])).filter(v => !isNaN(v)) : [];
-  const oldPrices = oldPriceKey ? rows.map(r => Number(r[oldPriceKey])).filter(Boolean) : [];
-  const walletPrices = walletPriceKey ? rows.map(r => Number(r[walletPriceKey])).filter(Boolean) : [];
   const reviews = reviewsKey ? rows.map(r => Number(r[reviewsKey])).filter(Boolean) : [];
   const ratings = ratingKey ? rows.map(r => Number(r[ratingKey])).filter(Boolean) : [];
   const brands = brandKey ? rows.map(r => r[brandKey]).filter(Boolean) : [];
   const shops = shopKey ? rows.map(r => r[shopKey]).filter(Boolean) : [];
   const artikuls = artikulKey ? rows.map(r => r[artikulKey]) : [];
+  const supplierIds = supplierIdKey ? rows.map(r => r[supplierIdKey]).filter(Boolean) : [];
 
   // Медиана
   const median = arr => {
@@ -1123,7 +1777,8 @@ function analyzeTable(rows) {
     brands,
     shops,
     reviews,
-    prices
+    prices,
+    supplierIds
   };
 }
 
@@ -1166,135 +1821,144 @@ function renderCompareStats(s1, s2, diff, f1, f2) {
     if (n === 0) return '';
     const sign = n > 0 ? '+' : '';
     const color = n > 0 ? '#10b981' : n < 0 ? '#ef4444' : '#6b7280';
-    return `<span style="color:${color};font-weight:500;">(${sign}${n.toFixed(2)}%)</span>`;
+    return `<span style="color:${color};font-weight:600;">(${sign}${n.toFixed(2)}%)</span>`;
   }
+  
+  // Функция для создания прогресс-бара
+  const createProgressBar = (value, max, color) => {
+    const percentage = max > 0 ? Math.min((value / max) * 100, 100) : 0;
+    return `
+      <div style="display:flex;align-items:center;gap:8px;margin:4px 0;">
+        <div style="flex:1;height:8px;background:#e5e7eb;border-radius:4px;overflow:hidden;">
+          <div style="width:${percentage}%;height:100%;background:${color};border-radius:4px;transition:width 0.3s;"></div>
+        </div>
+        <span style="font-size:0.8rem;color:#6b7280;min-width:40px;text-align:right;">${value}</span>
+      </div>
+    `;
+  };
   
   // Извлекаем читаемые названия из гиперссылок
   const s1TopShop = extractReadableText(s1.topShop);
   const s2TopShop = extractReadableText(s2.topShop);
   
+  // Вычисляем дополнительные метрики
+  const s1PriceRange = s1.maxPrice - s1.minPrice;
+  const s2PriceRange = s2.maxPrice - s2.minPrice;
+  const priceRangeDiff = s2PriceRange - s1PriceRange;
+  
   return `
-    <div class="compare-stats-container">
-      <div class="compare-stats-wrapper">
-        <div class="compare-stats-card">
-          <div class="compare-stats-header">${f1}</div>
-          <div class="compare-stats-content">
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Всего товаров:</span>
-              <span class="compare-stats-value">${fmt(s1.count)}</span>
+    <div style="background:linear-gradient(135deg,#ffffff 0%,#f8fafc 100%);border-radius:16px;padding:24px;box-shadow:0 4px 20px rgba(0,0,0,0.08);">
+      <!-- Заголовок сравнения -->
+      <div style="text-align:center;margin-bottom:24px;">
+        <h2 style="margin:0 0 8px 0;font-size:1.8rem;color:#1f2937;font-weight:700;">📊 Сравнение данных</h2>
+        <div style="display:flex;justify-content:center;gap:16px;font-size:1rem;color:#6b7280;">
+          <span>📁 ${f1}</span>
+          <span style="color:#7c3aed;">↔</span>
+          <span>📁 ${f2}</span>
+        </div>
+      </div>
+      
+      <!-- Основные метрики -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px;">
+        <div style="background:#fff;padding:16px;border-radius:12px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">📦</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#1f2937;margin-bottom:4px;">${fmt(s1.count)} → ${fmt(s2.count)}</div>
+          <div style="font-size:0.85rem;color:#6b7280;">Товаров</div>
+          ${pct(diff.countGrowth)}
+        </div>
+        <div style="background:#fff;padding:16px;border-radius:12px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">💰</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#1f2937;margin-bottom:4px;">${fmt(s1.avgPrice)} → ${fmt(s2.avgPrice)}₽</div>
+          <div style="font-size:0.85rem;color:#6b7280;">Средняя цена</div>
+          ${pct(diff.priceGrowth)}
+        </div>
+        <div style="background:#fff;padding:16px;border-radius:12px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">⭐</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#1f2937;margin-bottom:4px;">${fmt(s1.avgRating,2)} → ${fmt(s2.avgRating,2)}</div>
+          <div style="font-size:0.85rem;color:#6b7280;">Рейтинг</div>
+          ${pct(diff.ratingGrowth)}
+        </div>
+        <div style="background:#fff;padding:16px;border-radius:12px;border:1px solid #e5e7eb;text-align:center;">
+          <div style="font-size:2rem;margin-bottom:4px;">💬</div>
+          <div style="font-size:1.5rem;font-weight:700;color:#1f2937;margin-bottom:4px;">${fmt(s1.totalReviews)} → ${fmt(s2.totalReviews)}</div>
+          <div style="font-size:0.85rem;color:#6b7280;">Отзывов</div>
+          ${pct(diff.reviewsGrowth)}
+        </div>
+      </div>
+      
+      <!-- Детальная статистика -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(400px,1fr));gap:20px;margin-bottom:24px;">
+        <div style="background:#fff;padding:20px;border-radius:12px;border:1px solid #e5e7eb;">
+          <h3 style="margin:0 0 16px 0;font-size:1.2rem;color:#1f2937;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.3rem;">📈</span> Детальная статистика
+          </h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+            <div>
+              <div style="font-weight:600;color:#374151;margin-bottom:8px;">Ценовые показатели</div>
+              <div style="font-size:0.9rem;margin-bottom:4px;">Мин: ${fmt(s1.minPrice)} → ${fmt(s2.minPrice)}₽ ${pct(diff.minPriceGrowth)}</div>
+              <div style="font-size:0.9rem;margin-bottom:4px;">Макс: ${fmt(s1.maxPrice)} → ${fmt(s2.maxPrice)}₽ ${pct(diff.maxPriceGrowth)}</div>
+              <div style="font-size:0.9rem;margin-bottom:4px;">Медиана: ${fmt(s1.medianPrice)} → ${fmt(s2.medianPrice)}₽</div>
+              <div style="font-size:0.9rem;">Диапазон: ${fmt(s1PriceRange)} → ${fmt(s2PriceRange)}₽ ${pct(priceRangeDiff)}</div>
             </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Средняя цена:</span>
-              <span class="compare-stats-value">${fmt(s1.avgPrice)} ₽</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Медиана цены:</span>
-              <span class="compare-stats-value">${fmt(s1.medianPrice)} ₽</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Максимальная цена:</span>
-              <span class="compare-stats-value">${fmt(s1.maxPrice)} ₽</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Минимальная цена:</span>
-              <span class="compare-stats-value">${fmt(s1.minPrice)} ₽</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Всего отзывов:</span>
-              <span class="compare-stats-value">${fmt(s1.totalReviews)}</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Средний рейтинг:</span>
-              <span class="compare-stats-value">${fmt(s1.avgRating,2)} ⭐</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Топ бренд:</span>
-              <span class="compare-stats-value">${s1.topBrand}</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Топ магазин:</span>
-              <span class="compare-stats-value">${s1TopShop}</span>
+            <div>
+              <div style="font-weight:600;color:#374151;margin-bottom:8px;">Топ показатели</div>
+              <div style="font-size:0.9rem;margin-bottom:4px;">Бренд: ${s1.topBrand} → ${s2.topBrand}</div>
+              <div style="font-size:0.9rem;margin-bottom:4px;">Магазин: ${s1TopShop} → ${s2TopShop}</div>
+              <div style="font-size:0.9rem;margin-bottom:4px;">Ср. отзывов: ${fmt(s1.avgReviews)} → ${fmt(s2.avgReviews)}</div>
             </div>
           </div>
         </div>
         
-        <div class="compare-stats-card">
-          <div class="compare-stats-header">${f2}</div>
-          <div class="compare-stats-content">
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Всего товаров:</span>
-              <div class="compare-stats-value-group">
-                <div class="compare-stats-value">${fmt(s2.count)}</div>
-                <div class="compare-stats-change">${pct(diff.countGrowth)}</div>
-              </div>
+        <div style="background:#fff;padding:20px;border-radius:12px;border:1px solid #e5e7eb;">
+          <h3 style="margin:0 0 16px 0;font-size:1.2rem;color:#1f2937;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.3rem;">📊</span> Изменения
+          </h3>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f9fafb;border-radius:8px;">
+              <span style="font-weight:600;color:#374151;">Количество товаров</span>
+              <span style="font-weight:600;${diff.countGrowth > 0 ? 'color:#10b981;' : diff.countGrowth < 0 ? 'color:#ef4444;' : 'color:#6b7280;'}">${diff.countGrowth > 0 ? '+' : ''}${diff.countGrowth.toFixed(1)}%</span>
             </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Средняя цена:</span>
-              <div class="compare-stats-value-group">
-                <div class="compare-stats-value">${fmt(s2.avgPrice)} ₽</div>
-                <div class="compare-stats-change">${pct(diff.priceGrowth)}</div>
-              </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f9fafb;border-radius:8px;">
+              <span style="font-weight:600;color:#374151;">Средняя цена</span>
+              <span style="font-weight:600;${diff.priceGrowth > 0 ? 'color:#10b981;' : diff.priceGrowth < 0 ? 'color:#ef4444;' : 'color:#6b7280;'}">${diff.priceGrowth > 0 ? '+' : ''}${diff.priceGrowth.toFixed(1)}%</span>
             </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Медиана цены:</span>
-              <span class="compare-stats-value">${fmt(s2.medianPrice)} ₽</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f9fafb;border-radius:8px;">
+              <span style="font-weight:600;color:#374151;">Средний рейтинг</span>
+              <span style="font-weight:600;${diff.ratingGrowth > 0 ? 'color:#10b981;' : diff.ratingGrowth < 0 ? 'color:#ef4444;' : 'color:#6b7280;'}">${diff.ratingGrowth > 0 ? '+' : ''}${diff.ratingGrowth.toFixed(1)}%</span>
             </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Максимальная цена:</span>
-              <div class="compare-stats-value-group">
-                <div class="compare-stats-value">${fmt(s2.maxPrice)} ₽</div>
-                <div class="compare-stats-change">${pct(diff.maxPriceGrowth)}</div>
-              </div>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Минимальная цена:</span>
-              <div class="compare-stats-value-group">
-                <div class="compare-stats-value">${fmt(s2.minPrice)} ₽</div>
-                <div class="compare-stats-change">${pct(diff.minPriceGrowth)}</div>
-              </div>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Всего отзывов:</span>
-              <div class="compare-stats-value-group">
-                <div class="compare-stats-value">${fmt(s2.totalReviews)}</div>
-                <div class="compare-stats-change">${pct(diff.reviewsGrowth)}</div>
-              </div>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Средний рейтинг:</span>
-              <div class="compare-stats-value-group">
-                <div class="compare-stats-value">${fmt(s2.avgRating,2)} ⭐</div>
-                <div class="compare-stats-change">${pct(diff.ratingGrowth)}</div>
-              </div>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Топ бренд:</span>
-              <span class="compare-stats-value">${s2.topBrand}</span>
-            </div>
-            <div class="compare-stats-row">
-              <span class="compare-stats-label">Топ магазин:</span>
-              <span class="compare-stats-value">${s2TopShop}</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:#f9fafb;border-radius:8px;">
+              <span style="font-weight:600;color:#374151;">Всего отзывов</span>
+              <span style="font-weight:600;${diff.reviewsGrowth > 0 ? 'color:#10b981;' : diff.reviewsGrowth < 0 ? 'color:#ef4444;' : 'color:#6b7280;'}">${diff.reviewsGrowth > 0 ? '+' : ''}${diff.reviewsGrowth.toFixed(1)}%</span>
             </div>
           </div>
         </div>
       </div>
       
-      <div class="compare-items-wrapper">
-        <div class="compare-items-card">
-          <div class="compare-items-header new">
-            🆕 Новые товары (${diff.newItems.length})
-          </div>
-          <div class="compare-items-list">
-            ${diff.newItems.length ? diff.newItems.map(x => `<div class="compare-items-item">📦 ${x}</div>`).join('') : '<div class="compare-items-empty">Нет новых товаров</div>'}
+      <!-- Новые и исчезнувшие товары -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:20px;">
+        <div style="background:#fff;padding:20px;border-radius:12px;border:1px solid #e5e7eb;">
+          <h3 style="margin:0 0 16px 0;font-size:1.2rem;color:#1f2937;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.3rem;color:#10b981;">🆕</span> Новые товары (${diff.newItems.length})
+          </h3>
+          <div style="max-height:200px;overflow-y:auto;">
+            ${diff.newItems.length ? diff.newItems.map(x => `
+              <div style="padding:8px 12px;margin:4px 0;background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border-radius:8px;border-left:4px solid #10b981;font-size:0.9rem;color:#374151;">
+                📦 ${x}
+              </div>
+            `).join('') : '<div style="color:#6b7280;text-align:center;font-size:0.9rem;padding:20px;">Нет новых товаров</div>'}
           </div>
         </div>
         
-        <div class="compare-items-card">
-          <div class="compare-items-header removed">
-            ❌ Исчезнувшие товары (${diff.goneItems.length})
-          </div>
-          <div class="compare-items-list">
-            ${diff.goneItems.length ? diff.goneItems.map(x => `<div class="compare-items-item">📦 ${x}</div>`).join('') : '<div class="compare-items-empty">Нет исчезнувших товаров</div>'}
+        <div style="background:#fff;padding:20px;border-radius:12px;border:1px solid #e5e7eb;">
+          <h3 style="margin:0 0 16px 0;font-size:1.2rem;color:#1f2937;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:1.3rem;color:#ef4444;">❌</span> Исчезнувшие товары (${diff.goneItems.length})
+          </h3>
+          <div style="max-height:200px;overflow-y:auto;">
+            ${diff.goneItems.length ? diff.goneItems.map(x => `
+              <div style="padding:8px 12px;margin:4px 0;background:linear-gradient(135deg,#fef2f2 0%,#fee2e2 100%);border-radius:8px;border-left:4px solid #ef4444;font-size:0.9rem;color:#374151;">
+                📦 ${x}
+              </div>
+            `).join('') : '<div style="color:#6b7280;text-align:center;font-size:0.9rem;padding:20px;">Нет исчезнувших товаров</div>'}
           </div>
         </div>
       </div>
@@ -1324,6 +1988,8 @@ function formatPercent(val) {
   if (typeof val !== 'number' || isNaN(val)) return '';
   return (val > 0 ? '+' : '') + val.toFixed(2) + '%';
 } 
+
+ 
 
 
 

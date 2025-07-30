@@ -1,6 +1,27 @@
 html, body, .container, .main {
   box-sizing: border-box;
 }
+
+/* Анимации для модальных окон */
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 body {
   margin: 0;
   font-family: 'Segoe UI', Arial, sans-serif;
@@ -243,9 +264,23 @@ body {
   color: #2d72d9;
   text-decoration: underline wavy;
 }
-th.sortable {
-  cursor: pointer;
-  user-select: none;
+/* Стили для кнопок сортировки */
+.sort-btn:hover {
+  background: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.sort-btn[data-sort="clear"]:hover {
+  background: #e5e7eb !important;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.sort-btn:active {
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 #loading-overlay {
   position: fixed;

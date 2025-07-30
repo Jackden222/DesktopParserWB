@@ -12,7 +12,7 @@ let activationPassed = false;
 let mainWindow = null;
 
 // Интегрированная функция парсинга
-async function fetchWB(query, saveDir) {
+async function fetchWB(query, saveDir, category = null) {
   // Проверяем активацию перед выполнением парсинга
   if (!activationPassed) {
     throw new Error('Приложение не активировано');
@@ -67,8 +67,11 @@ async function fetchWB(query, saveDir) {
   const data = allProducts
     .map(p => {
       let price = null;
-      if (Array.isArray(p.sizes) && p.sizes.length > 0 && p.sizes[0].price && typeof p.sizes[0].price.product === 'number') {
-        price = p.sizes[0].price.product / 100;
+      
+      if (Array.isArray(p.sizes) && p.sizes.length > 0 && p.sizes[0].price) {
+        if (typeof p.sizes[0].price.product === 'number') {
+          price = p.sizes[0].price.product / 100;
+        }
       }
       
       // Создаем кликабельную ссылку для магазина
@@ -88,6 +91,7 @@ async function fetchWB(query, saveDir) {
         'Цена': price,
         'Рейтинг': p.reviewRating,
         'Кол-во отзывов': p.feedbacks,
+        'ID поставщика': p.supplierId,
         'Магазин': shopDisplay
       };
     })
@@ -121,9 +125,22 @@ async function fetchWB(query, saveDir) {
   }
   XLSX.writeFile(workbook, fileName);
 
-  logStream.write(`[${new Date().toISOString()}] Готово: ${fileName}. Всего товаров: ${data.length}\n`);
+  // Сохраняем информацию о категории файла
+  if (category) {
+    const fileNameOnly = path.basename(fileName);
+    const fileInfo = {
+      category: category,
+      timestamp: Date.now()
+    };
+    // Отправляем информацию о категории в renderer процесс
+    if (mainWindow) {
+      mainWindow.webContents.send('file-category-saved', fileNameOnly, category);
+    }
+  }
+
+  logStream.write(`[${new Date().toISOString()}] Готово: ${fileName}. Всего товаров: ${data.length}. Категория: ${category || 'не указана'}\n`);
   logStream.end();
-  console.log(`✅ Готово: ${fileName}. Всего товаров: ${data.length}`);
+  console.log(`✅ Готово: ${fileName}. Всего товаров: ${data.length}. Категория: ${category || 'не указана'}`);
   
   return fileName;
 }
@@ -170,10 +187,10 @@ function createWindow(isActivated) {
     const appIcon = nativeImage.createFromPath(iconPath);
     
     mainWindow = new BrowserWindow({
-      width: 1250,
+      width: 1320,
       height: 800,
-      minWidth: 1000,
-      minHeight: 600,
+      minWidth: 1320,
+      minHeight: 800,
       icon: appIcon,
       webPreferences: {
         nodeIntegration: true,
@@ -223,15 +240,15 @@ app.on('window-all-closed', function () {
 });
 
 // IPC: запуск парсера по запросу из renderer
-ipcMain.handle('run-parser', async (event, query, saveDir) => {
+ipcMain.handle('run-parser', async (event, query, saveDir, category = null) => {
   // Проверяем активацию перед запуском парсера
   if (!activationPassed) {
     return { success: false, error: 'Приложение не активировано' };
   }
   
   try {
-    console.log('Запуск парсера с запросом:', query, 'в папку:', saveDir);
-    const result = await fetchWB(query, saveDir);
+    console.log('Запуск парсера с запросом:', query, 'в папку:', saveDir, 'категория:', category);
+    const result = await fetchWB(query, saveDir, category);
     return { success: true, fileName: result };
   } catch (error) {
     console.error('Ошибка парсинга:', error);

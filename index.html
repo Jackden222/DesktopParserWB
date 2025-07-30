@@ -16,6 +16,7 @@
       <button id="parser-btn" class="settings-btn">Парсер</button>
       <button id="compare-btn" class="settings-btn" style="margin-top:6px;">Сравнение</button>
       <button id="settings-btn" class="settings-btn" style="margin-top:6px;">⚙️ Настройки</button>
+
       <div class="sidebar-bottom">
       </div>
     </div>
@@ -33,6 +34,20 @@
             <button id="open-file-modal" class="table-select" style="min-width:180px;margin-left:18px;">Выбрать файл</button>
             <button id="toggle-summary" class="toggle-summary-btn">Показать сводку</button>
           </div>
+          <div id="sorting-panel" style="display:none;margin:8px 0;padding:8px 12px;background:linear-gradient(135deg,#f8fafc 0%,#f1f5f9 100%);border-radius:6px;border:1px solid #e2e8f0;box-shadow:0 1px 3px rgba(0,0,0,0.05);">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <span style="font-weight:600;color:#374151;font-size:0.8rem;white-space:nowrap;">Сортировка:</span>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <button class="sort-btn" data-sort="price-asc" style="padding:4px 8px;font-size:0.75rem;border-radius:4px;background:#fff;border:1px solid #d1d5db;cursor:pointer;transition:all 0.2s;min-width:50px;">Цена↑</button>
+                <button class="sort-btn" data-sort="price-desc" style="padding:4px 8px;font-size:0.75rem;border-radius:4px;background:#fff;border:1px solid #d1d5db;cursor:pointer;transition:all 0.2s;min-width:50px;">Цена↓</button>
+                <button class="sort-btn" data-sort="rating-asc" style="padding:4px 8px;font-size:0.75rem;border-radius:4px;background:#fff;border:1px solid #d1d5db;cursor:pointer;transition:all 0.2s;min-width:50px;">Рейт↑</button>
+                <button class="sort-btn" data-sort="rating-desc" style="padding:4px 8px;font-size:0.75rem;border-radius:4px;background:#fff;border:1px solid #d1d5db;cursor:pointer;transition:all 0.2s;min-width:50px;">Рейт↓</button>
+                <button class="sort-btn" data-sort="reviews-asc" style="padding:4px 8px;font-size:0.75rem;border-radius:4px;background:#fff;border:1px solid #d1d5db;cursor:pointer;transition:all 0.2s;min-width:50px;">Отз↑</button>
+                <button class="sort-btn" data-sort="reviews-desc" style="padding:4px 8px;font-size:0.75rem;border-radius:4px;background:#fff;border:1px solid #d1d5db;cursor:pointer;transition:all 0.2s;min-width:50px;">Отз↓</button>
+                <button class="sort-btn" data-sort="clear" style="padding:4px 8px;font-size:0.75rem;border-radius:4px;background:#f3f4f6;border:1px solid #d1d5db;cursor:pointer;transition:all 0.2s;color:#6b7280;min-width:50px;">Сброс</button>
+              </div>
+            </div>
+          </div>
           <div id="preview-table"></div>
         </div>
       </div>
@@ -41,8 +56,8 @@
         <h3 style="text-align:center;color:#615f63;margin-top:2px;font-size:14px;">Внимание! Из-за ограничения API Wildberries в 6000 товаров</h3>
         <h3 style="text-align:center;color:#615f63;font-size:14px;">при повторном парсинге артикулы могут изменится</h3>
         <div class="compare-controls">
-          <select id="compare-file-1" class="table-select"></select>
-          <select id="compare-file-2" class="table-select"></select>
+          <button id="select-compare-file-1" class="table-select" style="min-width:200px;">Выбрать первый файл</button>
+          <button id="select-compare-file-2" class="table-select" style="min-width:200px;">Выбрать второй файл</button>
           <button id="run-compare-btn" class="toggle-summary-btn">Сравнить</button>
         </div>
         <div class="compare-controls">
@@ -51,6 +66,7 @@
         </div>
         <div id="compare-result-block" style="margin:0 auto;max-width:1200px;"></div>
       </div>
+
 
     </div>
   </div>
@@ -109,11 +125,61 @@
     </div>
   </div>
   <!-- Модальное окно AI-аналитики удалено -->
+  <!-- Модальное окно для выбора категории -->
+  <div id="category-modal" class="modal" style="display:none;">
+    <div class="modal-content" style="background:linear-gradient(120deg,#f8fafc 60%,#ede9fe 100%);border-radius:22px;box-shadow:0 8px 32px #7c3aed33,0 2px 8px #ede9fe;padding:38px 38px 28px 38px;min-width:420px;max-width:96vw;">
+      <button id="close-category-modal" class="close-modal-btn" style="top:18px;right:18px;">×</button>
+      <div style="font-size:1.8rem;font-weight:800;margin-bottom:24px;text-align:center;color:#2d2d2d;letter-spacing:0.5px;">Выберите категорию</div>
+      <div style="margin-bottom:20px;">
+        <div style="font-weight:600;margin-bottom:12px;font-size:1.1rem;color:#444;">Существующие категории:</div>
+        <div id="existing-categories" style="max-height:200px;overflow-y:auto;margin-bottom:16px;"></div>
+        <div style="font-weight:600;margin-bottom:8px;font-size:1.1rem;color:#444;">Или создайте новую:</div>
+        <div style="display:flex;gap:12px;align-items:center;">
+          <input id="new-category-input" type="text" placeholder="Название новой категории" style="flex:1;padding:12px 16px;font-size:1.08rem;border-radius:10px;border:2px solid #ddd;background:#fff;transition:border-color 0.2s;" />
+          <button id="create-category-btn" style="padding:12px 20px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#10b981 60%,#34d399 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Создать</button>
+        </div>
+      </div>
+      <div style="display:flex;gap:14px;justify-content:center;margin-top:24px;">
+        <button id="confirm-category-btn" style="padding:12px 24px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#7c3aed 60%,#a78bfa 100%);color:#fff;border:none;cursor:pointer;font-weight:700;transition:background 0.18s;">Продолжить парсинг</button>
+        <button id="cancel-category-btn" style="padding:12px 24px;font-size:1.08rem;border-radius:10px;background:linear-gradient(90deg,#6b7280 60%,#9ca3af 100%);color:#fff;border:none;cursor:pointer;font-weight:700;transition:background 0.18s;">Отмена</button>
+      </div>
+    </div>
+  </div>
+
   <div id="file-modal" class="modal" style="display:none;">
-    <div class="modal-content" id="file-modal-content">
-      <button id="close-file-modal" class="close-modal-btn">×</button>
-      <div id="file-modal-title" style="font-size:1.3rem;font-weight:700;text-align:center;color:#7c3aed;margin-bottom:18px;">Файлы</div>
+    <div class="modal-content" id="file-modal-content" style="background:linear-gradient(120deg,#f8fafc 60%,#ede9fe 100%);border-radius:22px;box-shadow:0 8px 32px #7c3aed33,0 2px 8px #ede9fe;padding:38px 38px 28px 38px;min-width:480px;max-width:96vw;">
+      <button id="close-file-modal" class="close-modal-btn" style="top:18px;right:18px;">×</button>
+      <div id="file-modal-title" style="font-size:1.8rem;font-weight:800;text-align:center;color:#2d2d2d;margin-bottom:24px;letter-spacing:0.5px;">Выберите файл</div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
+        <button id="expand-all-categories" style="padding:8px 16px;font-size:0.9rem;border-radius:8px;background:linear-gradient(90deg,#10b981 60%,#34d399 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Развернуть все</button>
+        <button id="collapse-all-categories" style="padding:8px 16px;font-size:0.9rem;border-radius:8px;background:linear-gradient(90deg,#f59e0b 60%,#fbbf24 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Свернуть все</button>
+      </div>
       <div id="file-modal-list"></div>
+    </div>
+  </div>
+
+  <!-- Модальные окна для выбора файлов сравнения -->
+  <div id="compare-file-modal-1" class="modal" style="display:none;">
+    <div class="modal-content" style="background:linear-gradient(120deg,#f8fafc 60%,#ede9fe 100%);border-radius:22px;box-shadow:0 8px 32px #7c3aed33,0 2px 8px #ede9fe;padding:38px 38px 28px 38px;min-width:480px;max-width:96vw;">
+      <button id="close-compare-file-modal-1" class="close-modal-btn" style="top:18px;right:18px;">×</button>
+      <div style="font-size:1.8rem;font-weight:800;text-align:center;color:#2d2d2d;margin-bottom:24px;letter-spacing:0.5px;">Выберите первый файл</div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
+        <button id="expand-all-compare-1" style="padding:8px 16px;font-size:0.9rem;border-radius:8px;background:linear-gradient(90deg,#10b981 60%,#34d399 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Развернуть все</button>
+        <button id="collapse-all-compare-1" style="padding:8px 16px;font-size:0.9rem;border-radius:8px;background:linear-gradient(90deg,#f59e0b 60%,#fbbf24 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Свернуть все</button>
+      </div>
+      <div id="compare-file-list-1"></div>
+    </div>
+  </div>
+
+  <div id="compare-file-modal-2" class="modal" style="display:none;">
+    <div class="modal-content" style="background:linear-gradient(120deg,#f8fafc 60%,#ede9fe 100%);border-radius:22px;box-shadow:0 8px 32px #7c3aed33,0 2px 8px #ede9fe;padding:38px 38px 28px 38px;min-width:480px;max-width:96vw;">
+      <button id="close-compare-file-modal-2" class="close-modal-btn" style="top:18px;right:18px;">×</button>
+      <div style="font-size:1.8rem;font-weight:800;text-align:center;color:#2d2d2d;margin-bottom:24px;letter-spacing:0.5px;">Выберите второй файл</div>
+      <div style="display:flex;gap:12px;justify-content:center;margin-bottom:20px;">
+        <button id="expand-all-compare-2" style="padding:8px 16px;font-size:0.9rem;border-radius:8px;background:linear-gradient(90deg,#10b981 60%,#34d399 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Развернуть все</button>
+        <button id="collapse-all-compare-2" style="padding:8px 16px;font-size:0.9rem;border-radius:8px;background:linear-gradient(90deg,#f59e0b 60%,#fbbf24 100%);color:#fff;border:none;cursor:pointer;font-weight:600;transition:background 0.18s;">Свернуть все</button>
+      </div>
+      <div id="compare-file-list-2"></div>
     </div>
   </div>
   <script src="renderer.js"></script>

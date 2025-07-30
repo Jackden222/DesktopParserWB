@@ -49,7 +49,7 @@ async function checkActivation() {
       .from('activation_codes')
       .select('*')
       .eq('code', code)
-      .single();
+      .maybeSingle();
     let table = 'activation_codes';
     
     if (!data || error) {
@@ -58,13 +58,13 @@ async function checkActivation() {
         .from('limited_activation_codes')
         .select('*')
         .eq('code', code)
-        .single();
+        .maybeSingle();
       data = res.data;
       error = res.error;
       table = 'limited_activation_codes';
     }
     
-    if (error || !data) { 
+    if (!data) { 
       console.log('Код не найден в базе данных. Удаляем локальный файл активации...');
       // Код не найден в базе - удаляем локальный файл активации
       try {
@@ -120,31 +120,60 @@ async function activateWithCode(code) {
   const deviceId = getDeviceId();
   console.log('Активация кода:', code, 'для устройства:', deviceId);
   
+  // Тестируем подключение к базе данных
+  console.log('Тестирование подключения к Supabase...');
+  try {
+    const { data: testData, error: testError } = await supabase
+      .from('activation_codes')
+      .select('count')
+      .limit(1);
+    console.log('Тест подключения:', { testData, testError });
+  } catch (e) {
+    console.log('Ошибка подключения к Supabase:', e.message);
+  }
+  
   // Сначала ищем в activation_codes
+  console.log('Поиск кода в таблице activation_codes...');
   let { data, error } = await supabase
     .from('activation_codes')
     .select('*')
     .eq('code', code)
-    .single();
+    .maybeSingle();
   let table = 'activation_codes';
   
   console.log('Поиск в activation_codes:', { data, error });
+  if (data) {
+    console.log('Код найден в activation_codes:', { 
+      code: data.code, 
+      device_id: data.device_id, 
+      activated_at: data.activated_at 
+    });
+  }
   
   if (!data || error) {
     // Если не найдено — ищем в limited_activation_codes
-    console.log('Поиск в limited_activation_codes...');
+    console.log('Поиск кода в таблице limited_activation_codes...');
     const res = await supabase
       .from('limited_activation_codes')
       .select('*')
       .eq('code', code)
-      .single();
+      .maybeSingle();
     data = res.data;
     error = res.error;
     table = 'limited_activation_codes';
     console.log('Результат поиска в limited_activation_codes:', { data, error });
+    if (data) {
+      console.log('Код найден в limited_activation_codes:', { 
+        code: data.code, 
+        device_id: data.device_id, 
+        activated_at: data.activated_at,
+        type: data.type,
+        expires_at: data.expires_at
+      });
+    }
   }
   
-  if (error || !data) { 
+  if (!data) { 
     console.log('Код не найден в обеих таблицах');
     return { ok: false, message: 'Код не найден' }; 
   }
@@ -229,7 +258,7 @@ async function getActivationInfo() {
       .from('activation_codes')
       .select('*')
       .eq('code', code)
-      .single();
+      .maybeSingle();
     let table = 'activation_codes';
     
     if (!data || error) {
@@ -238,13 +267,13 @@ async function getActivationInfo() {
         .from('limited_activation_codes')
         .select('*')
         .eq('code', code)
-        .single();
+        .maybeSingle();
       data = res.data;
       error = res.error;
       table = 'limited_activation_codes';
     }
     
-    if (error || !data) {
+    if (!data) {
       // Код не найден в базе - удаляем локальный файл активации
       try {
         fs.unlinkSync(file);

@@ -52,8 +52,11 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
   const data = allProducts
     .map(p => {
       let price = null;
-      if (Array.isArray(p.sizes) && p.sizes.length > 0 && p.sizes[0].price && typeof p.sizes[0].price.product === 'number') {
-        price = p.sizes[0].price.product / 100;
+      
+      if (Array.isArray(p.sizes) && p.sizes.length > 0 && p.sizes[0].price) {
+        if (typeof p.sizes[0].price.product === 'number') {
+          price = p.sizes[0].price.product / 100;
+        }
       }
       
       // Создаем кликабельную ссылку для магазина
@@ -73,6 +76,7 @@ async function fetchWB(query, { minPrice = 0, maxPrice = Infinity, minRating = 0
         'Цена': price,
         'Рейтинг': p.reviewRating,
         'Кол-во отзывов': p.feedbacks,
+        'ID поставщика': p.supplierId,
         'Магазин': shopDisplay
       };
     })
