@@ -44,6 +44,14 @@
       "buildResources": "build",
       "output": "dist"
     },
+    "files": [
+      "**/*",
+      "!build/installer.nsh",
+      "!build/win.nsh",
+      "!build/installer-sidebar.bmp",
+      "!build/uninstaller-sidebar.bmp",
+      "!build/installer-header.bmp"
+    ],
     "win": {
       "target": "nsis",
       "signAndEditExecutable": false,
@@ -51,27 +59,31 @@
       "requestedExecutionLevel": "asInvoker",
       "artifactName": "${productName}-${version}.${ext}",
       "verifyUpdateCodeSignature": false,
-      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
-      "timeStampServer": "http://timestamp.digicert.com"
+      "extraResources": [
+        {
+          "from": "build/icon.ico",
+          "to": "icon.ico"
+        }
+      ],
+      "executableName": "WildberriesParser"
     },
     "nsis": {
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": "always",
-      "createStartMenuShortcut": true,
+      "createDesktopShortcut": false,
+      "createStartMenuShortcut": false,
       "shortcutName": "WildberriesParser",
       "deleteAppDataOnUninstall": false,
       "perMachine": false,
       "runAfterFinish": false,
       "include": "build/installer.nsh",
-      "include": "build/win.nsh",
       "installerIcon": "build/icon.ico",
       "uninstallerIcon": "build/icon.ico",
       "installerSidebar": "build/installer-sidebar.bmp",
       "uninstallerSidebar": "build/uninstaller-sidebar.bmp",
       "installerHeader": "build/installer-header.bmp",
-      "installerIconSize": 256,
-      "uninstallerIconSize": 256
+      "guid": "com.wildberries.parser",
+      "artifactName": "${productName}-${version}.${ext}"
     },
     "mac": {
       "icon": "build/wildberris.png"

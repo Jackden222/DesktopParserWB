@@ -186,7 +186,12 @@ function createWindow(isActivated) {
     // Используем правильную иконку для каждой платформы
     let iconPath;
     if (process.platform === 'win32') {
-      iconPath = path.join(__dirname, 'build', 'icon.ico');
+      // В production иконка находится в resources, в development в build
+      if (app.isPackaged) {
+        iconPath = path.join(process.resourcesPath, 'icon.ico');
+      } else {
+        iconPath = path.join(__dirname, 'build', 'icon.ico');
+      }
     } else if (process.platform === 'darwin') {
       iconPath = path.join(__dirname, 'build', 'icon.icns');
     } else {
