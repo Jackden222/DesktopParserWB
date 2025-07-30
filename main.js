@@ -183,10 +183,16 @@ function setupAutoUpdater(win) {
 
 function createWindow(isActivated) {
   try {
-    // Используем правильную иконку для Windows
-    const iconPath = process.platform === 'win32' 
-      ? path.join(__dirname, 'build', 'icon.ico')
-      : path.join(__dirname, 'build', 'wildberris.png');
+    // Используем правильную иконку для каждой платформы
+    let iconPath;
+    if (process.platform === 'win32') {
+      iconPath = path.join(__dirname, 'build', 'icon.ico');
+    } else if (process.platform === 'darwin') {
+      iconPath = path.join(__dirname, 'build', 'icon.icns');
+    } else {
+      iconPath = path.join(__dirname, 'build', 'icon.png');
+    }
+    
     const appIcon = nativeImage.createFromPath(iconPath);
     
     mainWindow = new BrowserWindow({

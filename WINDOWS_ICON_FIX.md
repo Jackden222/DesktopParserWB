@@ -23,14 +23,22 @@
 ```json
 {
   "build": {
-    "icon": "build/icon.ico",  // Изменено с wildberris.png
+    "icon": "build/icon.ico",  // Используем ICO как основную иконку
+    "directories": {
+      "buildResources": "build",
+      "output": "dist"
+    },
     "win": {
-      "icon": "build/icon.ico",  // Изменено с wildberris.png
-      "verifyUpdateCodeSignature": false  // Добавлено
+      "icon": "build/icon.ico",  // Используем ICO для Windows
+      "verifyUpdateCodeSignature": false,
+      "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+      "timeStampServer": "http://timestamp.digicert.com"
     },
     "nsis": {
-      "installerIcon": "build/icon.ico",  // Изменено
-      "uninstallerIcon": "build/icon.ico"  // Изменено
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico",
+      "installerIconSize": 256,
+      "uninstallerIconSize": 256
     }
   }
 }
@@ -38,10 +46,15 @@
 
 #### **main.js:**
 ```javascript
-// Используем правильную иконку для Windows
-const iconPath = process.platform === 'win32' 
-  ? path.join(__dirname, 'build', 'icon.ico')
-  : path.join(__dirname, 'build', 'wildberris.png');
+// Используем правильную иконку для каждой платформы
+let iconPath;
+if (process.platform === 'win32') {
+  iconPath = path.join(__dirname, 'build', 'icon.ico');
+} else if (process.platform === 'darwin') {
+  iconPath = path.join(__dirname, 'build', 'icon.icns');
+} else {
+  iconPath = path.join(__dirname, 'build', 'icon.png');
+}
 
 // Добавлено улучшенное отображение окна
 mainWindow = new BrowserWindow({
@@ -64,6 +77,20 @@ mainWindow.once('ready-to-show', () => {
    - [AppIcon Generator](http://www.tweaknow.com/appicongenerator.php)
    - [MakeAppIcon](https://makeappicon.com/)
    - [iConvert Icons](https://iconverticons.com/online/)
+
+#### **✅ Проблема решена!**
+Создан правильный ICO файл `build/icon.ico` со всеми необходимыми размерами:
+- 16x16 пикселей
+- 32x32 пикселей  
+- 48x48 пикселей
+- 64x64 пикселей
+- 128x128 пикселей
+- 256x256 пикселей
+
+**Старый файл**: 33KB (только 256x256)
+**Новый файл**: 138KB (6 размеров)
+
+Резервная копия сохранена как `build/icon_old.ico`
 
 #### **Проверка иконки:**
 ```bash

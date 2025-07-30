@@ -4,6 +4,10 @@
   !define MULTIUSER_INSTALLMODE_INSTDIR "${PRODUCT_NAME}"
   !define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_KEY "Software\${PRODUCT_NAME}"
   !define MULTIUSER_INSTALLMODE_DEFAULT_REGISTRY_VALUENAME "InstallLocation"
+  
+  ; Настройки иконки для приложения
+  !define APP_ICON "${PRODUCT_FILENAME}.exe"
+  !define SHORTCUT_ICON "${PRODUCT_FILENAME}.exe"
 !macroend
 
 !macro customUnInstall
